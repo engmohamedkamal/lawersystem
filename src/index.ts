@@ -1,6 +1,3 @@
-import bootStrap from "./app.controller";
+import app from "./app.controller";
 
-
-
-
-bootStrap()
+export default app;
