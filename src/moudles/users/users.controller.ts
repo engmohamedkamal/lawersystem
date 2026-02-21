@@ -1,0 +1,22 @@
+import { Router } from "express";
+import { validation } from "../../middleware/validation";
+import * as UV  from "../users/users.validation";
+import  AS from "./users.service";
+import { authorization } from "../../middleware/authorization";
+import { Role } from "../../DB/model/user.model";
+import { authentication } from "../../middleware/authentication";
+import { TokenType } from "../../utils/token";
+
+
+
+
+const userRouter = Router()
+
+userRouter.post("/addUsers",validation(UV.addUsersByAdminSchema),
+authentication(TokenType.access),
+authorization(Role.ADMIN),
+AS.addUsersByAdmin)
+
+userRouter.get("/", AS.getUsers);
+
+export default userRouter
