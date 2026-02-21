@@ -1,4 +1,3 @@
-import bootStrap from "../src/app.controller";
+import bootStrap from "./app.controller";
 
-
-export default bootStrap;
+export default bootStrap()

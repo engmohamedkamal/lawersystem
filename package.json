@@ -8,6 +8,9 @@
   },
   "keywords": [],
   "author": "",
+  "engines": {
+    "node": "22.15.1"
+  },
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {

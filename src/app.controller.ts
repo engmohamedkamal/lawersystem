@@ -31,7 +31,7 @@ const bootStrap = ()=>{
     app.use(cors({
      origin: true,
      credentials: true,
-    }));
+    }))
     app.use(helmet())
     app.use(limiter)
     app.use(cookieParser());
@@ -55,24 +55,13 @@ const bootStrap = ()=>{
         return res.status(err.cause as unknown as number || 500).json({message:err.message , stack:err.stack})
     })
 
-    
+    app.listen(port,()=>{
+        console.log(`server is running on port ${port} `);
+        
+    })
+
 }
  
 
 
 export default bootStrap
-
-
-
-
-
-
-
-
-
-
-
-
-    app.get("{/*demo}",(req:Request,res:Response,next:NextFunction)=>{
-        throw new AppError(`invalid url ${req.originalUrl}`,  404 )
-    })
