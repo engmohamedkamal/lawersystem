@@ -29,8 +29,7 @@ const limiter = rateLimit({
 const bootStrap = ()=>{
     app.use(express.json())
     app.use(cors({
-     origin: true,
-     credentials: true,
+     origin: "*",
     }))
     app.use(helmet())
     app.use(limiter)
@@ -55,7 +54,7 @@ const bootStrap = ()=>{
         return res.status(err.cause as unknown as number || 500).json({message:err.message , stack:err.stack})
     })
 
-    app.listen(port,()=>{
+    app.listen(port,"0.0.0.0",()=>{
         console.log(`server is running on port ${port} `);
         
     })
