@@ -139,7 +139,7 @@ class authService {
            secure: process.env.NODE_ENV === "production",
         });
         
-        return res.status(200).json({ message: "done" , revokeToken});
+        return res.status(200).json({ message: "done" , revokeToken})
     };
 
 }   
