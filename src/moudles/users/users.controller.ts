@@ -19,7 +19,7 @@ authentication(TokenType.access),
 authorization(Role.ADMIN , Role.STAFF),
  AS.getUsers);
 
-userRouter.get("/:userId",validation(UV.getUsersSchema),
+userRouter.get("/:userId",validation(UV.getUserByIdSchema),
 authentication(TokenType.access),
 authorization(Role.ADMIN , Role.STAFF),
 AS.getUsersById);
