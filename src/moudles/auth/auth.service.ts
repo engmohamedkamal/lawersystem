@@ -43,6 +43,10 @@ class authService {
             throw new AppError("invalid password", 401);
         }
 
+        if (user.isDeleted) {
+            throw new AppError("account is frozen", 403);
+        }
+
         const jwtid = uuidv4();
         //access token
         const access_token = await generateToken({payload : {id:user._id ,role :user.role},

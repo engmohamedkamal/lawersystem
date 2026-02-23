@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response  } from "express";
 import { AppError } from "../utils/classError";
 import { decodedTokenAndFetchUser, getSignature, TokenType } from "../utils/token";
+import UserModel from "../DB/model/user.model";
 
 
 export const authentication = (tokenType : TokenType = TokenType.access)=>{
@@ -16,7 +17,6 @@ export const authentication = (tokenType : TokenType = TokenType.access)=>{
         throw new AppError("Invalid token prefix", 400)
     }
 
-
     const Signature = await getSignature(tokenType)
     if(!Signature){
         throw new AppError("Invalid Signature ", 400)
@@ -26,6 +26,10 @@ export const authentication = (tokenType : TokenType = TokenType.access)=>{
 
     req.user = decoded.user
     req.decoded = decoded.decoded
+
+    if (req.user?.isDeleted) {
+        throw new AppError("account is frozen", 403);
+    }
 
     return next()
 }

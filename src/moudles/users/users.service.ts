@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import UserModel from "../../DB/model/user.model";
 import { HASH } from "../../utils/hash";
 import { AppError } from "../../utils/classError";
-import { addUsersByAdminSchemaType, getUserByIdParamsType, getUsersSchemaType, updateUserBodyType, updateUserParamsType } from "./users.validation";
+import { addUsersByAdminSchemaType, deleteUserParamsType, freezeUserParamsType, getUserByIdParamsType, getUsersSchemaType, unfreezeUserParamsType, updateUserBodyType, updateUserParamsType } from "./users.validation";
 
 
 class usersService {
@@ -64,7 +64,7 @@ class usersService {
         const user = await UserModel.findByIdAndUpdate(
             userId,
             {$set : body},
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         ).select("_id UserName email phone role createdAt updatedAt");
 
         if (!user) {
@@ -76,6 +76,53 @@ class usersService {
 
 
 
+    deleteUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
+        const { userId } = req.params as unknown as deleteUserParamsType;
+
+        const user = await UserModel.findByIdAndDelete(userId).select("_id UserName email role");
+
+        if (!user) throw new AppError("user not found", 404);
+
+        return res.status(200).json({ message: "done, user deleted", user });
+    }
+
+ freezeUser = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.params as unknown as freezeUserParamsType;
+
+    const result = await UserModel.updateOne(
+      { _id: userId, isDeleted: false },
+      {
+        $set: {
+          isDeleted: true,
+          deletedBy: req.user?._id,
+          deletedAt: new Date(),
+        },
+        $inc: { __v: 1 },
+      }
+    );
+
+    if (!result.matchedCount) throw new AppError("user not found or already frozen", 404);
+
+    return res.status(200).json({ message: "success" });
+  };
+
+  // PATCH /users/:userId/unfreeze
+  unfreezeUser = async (req: Request, res: Response, next: NextFunction) => {
+    const { userId } = req.params as unknown as unfreezeUserParamsType;
+
+    const result = await UserModel.updateOne(
+      { _id: userId, isDeleted: true },
+      {
+        $set: { isDeleted: false },
+        $unset: { deletedBy: 1, deletedAt: 1 },
+        $inc: { __v: 1 },
+      }
+    );
+
+    if (!result.matchedCount) throw new AppError("user not found or not frozen", 404);
+
+    return res.status(200).json({ message: "success" });
+  };
 
 }
 

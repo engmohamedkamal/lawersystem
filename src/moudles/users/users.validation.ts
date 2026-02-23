@@ -50,6 +50,25 @@ export const updateUserSchema = {
     }).refine((data => Object.keys(data).length > 0) , {message : "send at least one filed to update"})
 }
 
+export const deleteUserSchema = {
+  params: z
+    .object({
+      userId: z.string().min(1, "userId is required"),
+    })
+    .required(),
+};
+
+export const freezeUserSchema = {
+  params: z.object({
+    userId: z.string().min(1, "userId is required"),
+  }).required(),
+};
+
+export const unfreezeUserSchema = {
+  params: z.object({
+    userId: z.string().min(1, "userId is required"),
+  }).required(),
+};
 
 
 export type getUsersSchemaType = z.infer<typeof getUsersSchema.query>;
@@ -57,3 +76,6 @@ export type addUsersByAdminSchemaType = z.infer<typeof addUsersByAdminSchema.bod
 export type getUserByIdParamsType = z.infer<typeof getUserByIdSchema.params>;
 export type updateUserParamsType = z.infer<typeof updateUserSchema.params>;
 export type updateUserBodyType = z.infer<typeof updateUserSchema.body>;
+export type deleteUserParamsType = z.infer<typeof deleteUserSchema.params>;
+export type freezeUserParamsType = z.infer<typeof freezeUserSchema.params>;
+export type unfreezeUserParamsType = z.infer<typeof unfreezeUserSchema.params>;
