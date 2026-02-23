@@ -43,6 +43,8 @@ class usersService {
         if (!user) {
             throw new AppError("user not found" , 404)
         }
+
+        return res.status(200).json({ message: "done", user });
     }
 }
 
