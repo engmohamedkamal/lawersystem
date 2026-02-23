@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import UserModel from "../../DB/model/user.model";
 import { HASH } from "../../utils/hash";
 import { AppError } from "../../utils/classError";
-import { addUsersByAdminSchemaType } from "./users.validation";
+import { addUsersByAdminSchemaType, getUserByIdParamsType, getUsersSchemaType } from "./users.validation";
 
 
 class usersService {
@@ -22,7 +22,7 @@ class usersService {
         }
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {
-           const { role } = req.query;
+           const { role } = req.query as unknown as getUsersSchemaType ;
 
            const filter: any = {};
 
@@ -33,7 +33,17 @@ class usersService {
            const users = await UserModel.find(filter).select("_id UserName role");
 
            return res.status(200).json({ message: "done", users });
-}         ;
+        };
+
+    getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
+        const {userId} = req.params as unknown as getUserByIdParamsType
+
+        const user = await UserModel.findById(userId).select("_id UserName email phone role createdAt updatedAt")
+
+        if (!user) {
+            throw new AppError("user not found" , 404)
+        }
+    }
 }
 
 

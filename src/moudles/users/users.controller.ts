@@ -7,16 +7,21 @@ import { Role } from "../../DB/model/user.model";
 import { authentication } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
 
-
-
-
 const userRouter = Router()
 
 userRouter.post("/addUsers",validation(UV.addUsersByAdminSchema),
 authentication(TokenType.access),
-authorization(Role.ADMIN),
+authorization(Role.ADMIN , Role.STAFF),
 AS.addUsersByAdmin)
 
-userRouter.get("/", AS.getUsers);
+userRouter.get("/",validation(UV.getUsersSchema),
+authentication(TokenType.access),
+authorization(Role.ADMIN , Role.STAFF),
+ AS.getUsers);
+
+userRouter.get("/:userId",validation(UV.getUsersSchema),
+authentication(TokenType.access),
+authorization(Role.ADMIN , Role.STAFF),
+AS.getUsersById);
 
 export default userRouter

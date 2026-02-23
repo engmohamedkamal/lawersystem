@@ -1,4 +1,5 @@
 import z from "zod"
+import { Role } from "../../DB/model/user.model";
 
 
 export const addUsersByAdminSchema = {
@@ -14,5 +15,24 @@ export const addUsersByAdminSchema = {
 }).required()
 }
 
+export const getUsersSchema = {
+  query: z.object({
+      role: z.nativeEnum(Role)!.optional(),
+    })
+    .required(),
+};
 
+
+export const getUserByIdSchema = {
+  params: z
+    .object({
+      userId: z.string().min(1, "userId is required"),
+    })
+    .required(),
+};
+
+
+
+export type getUsersSchemaType = z.infer<typeof getUsersSchema.query>;
 export type addUsersByAdminSchemaType = z.infer<typeof addUsersByAdminSchema.body >
+export type getUserByIdParamsType = z.infer<typeof getUserByIdSchema.params>;
