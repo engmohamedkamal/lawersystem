@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import UserModel from "../../DB/model/user.model";
 import { HASH } from "../../utils/hash";
 import { AppError } from "../../utils/classError";
-import { addUsersByAdminSchemaType, getUserByIdParamsType, getUsersSchemaType } from "./users.validation";
+import { addUsersByAdminSchemaType, getUserByIdParamsType, getUsersSchemaType, updateUserBodyType, updateUserParamsType } from "./users.validation";
 
 
 class usersService {
@@ -46,6 +46,37 @@ class usersService {
 
         return res.status(200).json({ message: "done", user });
     }
+
+
+    updateUsersByAdmin = async (req: Request, res: Response, next: NextFunction) =>{
+        const {userId} = req.params as unknown as updateUserParamsType
+        const body : updateUserBodyType = req.body
+
+        if (body.email) {
+            const exist = await UserModel.findOne({email : body.email , _id : {$ne : userId}})
+            if(exist) throw new AppError("email already exist" , 409)
+        }
+
+        if (body.password) {
+            body.password = await HASH(body.password)
+        }
+
+        const user = await UserModel.findByIdAndUpdate(
+            userId,
+            {$set : body},
+            { new: true, runValidators: true }
+        ).select("_id UserName email phone role createdAt updatedAt");
+
+        if (!user) {
+            throw new AppError("user not found", 404)
+        }
+
+        return res.status(200).json({ message: "done", user });
+    }
+
+
+
+
 }
 
 

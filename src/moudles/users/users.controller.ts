@@ -24,4 +24,9 @@ authentication(TokenType.access),
 authorization(Role.ADMIN , Role.STAFF),
 AS.getUsersById);
 
+userRouter.patch("/updateUser/:userId",validation(UV.updateUserSchema),
+authentication(TokenType.access),
+authorization(Role.ADMIN),
+AS.updateUsersByAdmin);
+
 export default userRouter

@@ -19,7 +19,7 @@ export const signinSchema = {
     .trim()
     .toLowerCase()
     .email("invalid email format"),
-    password : z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
+    password : z.string(),
 }).required()
 }
 
