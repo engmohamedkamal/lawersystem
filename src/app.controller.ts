@@ -32,6 +32,7 @@ const bootStrap = ()=>{
      origin: "*",
     }))
     app.use(helmet())
+    app.set("trust proxy" , true)
     app.use(limiter)
     app.use(cookieParser());
 
