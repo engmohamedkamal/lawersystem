@@ -3,6 +3,8 @@ import UserModel from "../../DB/model/user.model";
 import { HASH } from "../../utils/hash";
 import { AppError } from "../../utils/classError";
 import { addUsersByAdminSchemaType, deleteUserParamsType, freezeUserParamsType, getUserByIdParamsType, getUsersSchemaType, unfreezeUserParamsType, updateUserBodyType, updateUserParamsType } from "./users.validation";
+import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import cloudinary from "../../utils/cloudInary";
 
 
 class usersService {
@@ -19,7 +21,7 @@ class usersService {
             const user = new UserModel({email , password : hash , phone , UserName  })
             await user.save()
             return res.status(201).json({message : "done, user add success", user})
-        }
+        };
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {
            const { role } = req.query as unknown as getUsersSchemaType ;
@@ -45,8 +47,7 @@ class usersService {
         }
 
         return res.status(200).json({ message: "done", user });
-    }
-
+        };
 
     updateUsersByAdmin = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as updateUserParamsType
@@ -72,9 +73,7 @@ class usersService {
         }
 
         return res.status(200).json({ message: "done", user });
-    }
-
-
+        };
 
     deleteUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
         const { userId } = req.params as unknown as deleteUserParamsType;
@@ -84,45 +83,69 @@ class usersService {
         if (!user) throw new AppError("user not found", 404);
 
         return res.status(200).json({ message: "done, user deleted", user });
-    }
+        };
 
- freezeUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.params as unknown as freezeUserParamsType;
+    freezeUser = async (req: Request, res: Response, next: NextFunction) => {
+       const { userId } = req.params as unknown as freezeUserParamsType;
 
-    const result = await UserModel.updateOne(
-      { _id: userId, isDeleted: false },
-      {
-        $set: {
-          isDeleted: true,
-          deletedBy: req.user?._id,
-          deletedAt: new Date(),
-        },
-        $inc: { __v: 1 },
+       const result = await UserModel.updateOne(
+        { _id: userId, isDeleted: false },
+        {
+          $set: {
+            isDeleted: true,
+            deletedBy: req.user?._id,
+            deletedAt: new Date(),
+          },
+          $inc: { __v: 1 },
+      }  
+      );
+
+       if (!result.matchedCount) throw new AppError("user not found or already frozen", 404);
+
+       return res.status(200).json({ message: "success" });
+        };
+
+    unfreezeUser = async (req: Request, res: Response, next: NextFunction) => {
+       const { userId } = req.params as unknown as unfreezeUserParamsType;
+
+       const result = await UserModel.updateOne(
+         { _id: userId, isDeleted: true },
+         {
+           $set: { isDeleted: false },
+           $unset: { deletedBy: 1, deletedAt: 1 },
+           $inc: { __v: 1 },
+         }
+       );
+
+       if (!result.matchedCount) throw new AppError("user not found or not frozen", 404);
+
+       return res.status(200).json({ message: "success" });
+        };
+
+    updateProfilePhoto = async (req: Request, res: Response, next: NextFunction) => {
+      if (!req.file) throw new AppError("No file uploaded", 400);
+
+      const user = await UserModel.findById(req.user?._id);
+      if (!user) throw new AppError("User not found", 404);
+
+      const oldPublicId = (user as any)?.ProfilePhoto?.publicId;
+
+      const { secure_url, public_id } = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
+
+      (user as any).ProfilePhoto = { url: secure_url, publicId: public_id };
+      await user.save();
+
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId);
       }
-    );
 
-    if (!result.matchedCount) throw new AppError("user not found or already frozen", 404);
+      return res.status(200).json({
+        message: "Profile photo updated",
+        user,
+      });
+    };
 
-    return res.status(200).json({ message: "success" });
-  };
 
-  // PATCH /users/:userId/unfreeze
-  unfreezeUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.params as unknown as unfreezeUserParamsType;
-
-    const result = await UserModel.updateOne(
-      { _id: userId, isDeleted: true },
-      {
-        $set: { isDeleted: false },
-        $unset: { deletedBy: 1, deletedAt: 1 },
-        $inc: { __v: 1 },
-      }
-    );
-
-    if (!result.matchedCount) throw new AppError("user not found or not frozen", 404);
-
-    return res.status(200).json({ message: "success" });
-  };
 
 }
 

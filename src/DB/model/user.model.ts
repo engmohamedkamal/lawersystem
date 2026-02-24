@@ -10,6 +10,10 @@ export interface IUser extends mongoose.Document{
     email:string,
     password:string,
     jobTitle : string,
+    ProfilePhoto?: {
+        url: string,
+        PublicId: string
+    },
     lawyerRegistrationNo: string,
     permissions : [string]
     role:Role,
@@ -25,7 +29,10 @@ const UserSchema = new mongoose.Schema<IUser>({
     email : {type : String , required : true , unique : true , trim : true},
     password : {type : String , required : true},
     jobTitle: { type: String },
-    lawyerRegistrationNo: { type: String },
+    ProfilePhoto: {
+        url:{ type : String},
+        PublicId: { type : String}
+    },
     permissions: [{ type: String }],
     role : {type : String , default : Role.STAFF},
     phone : {type : Number , required : true},

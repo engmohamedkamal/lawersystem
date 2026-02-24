@@ -49,7 +49,7 @@ class authService {
 
         const jwtid = uuidv4();
         //access token
-        const access_token = await generateToken({payload : {id:user._id ,role :user.role},
+        const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName},
             signature : process.env.ACCESS_TOKEN!,
             options : {expiresIn : "1h" , jwtid }
         })

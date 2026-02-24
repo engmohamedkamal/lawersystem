@@ -6,6 +6,7 @@ import { authorization } from "../../middleware/authorization";
 import { Role } from "../../DB/model/user.model";
 import { authentication } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
+import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 const userRouter = Router()
 
@@ -57,6 +58,13 @@ userRouter.patch("/:userId/unfreeze",
   authorization(Role.ADMIN),
   validation(UV.unfreezeUserSchema),
   US.unfreezeUser
+);
+
+userRouter.patch(
+  "/updateProfilePhoto",
+  authentication(TokenType.access),
+  MulterHost({ customExtension: allowedExtensions.image, fileSizeMB: 3 }).single("profile"),
+  US.updateProfilePhoto
 );
 
 export default userRouter
