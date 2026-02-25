@@ -11,7 +11,7 @@ class usersService {
     constructor(){}
 
     addUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
-         const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role}: addUsersByAdminSchemaType = req.body;
+         const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role ,department}: addUsersByAdminSchemaType = req.body;
 
          if (await UserModel.findOne({ email })) {
            throw new AppError("email already exist", 409);
@@ -34,6 +34,7 @@ class usersService {
            jobTitle,
            lawyerRegistrationNo,
            role,
+           department,
            ...(profilePhoto ? { ProfilePhoto: profilePhoto } : {}),
          });
 

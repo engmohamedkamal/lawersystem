@@ -12,6 +12,7 @@ export const addUsersByAdminSchema = {
     password : z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
     UserName : z.string().min(2).max(50).trim(),
     phone : z.string().regex(/^01[0125][0-9]{8}$/),
+    department : z.string(),
     role : z.nativeEnum(Role)!,
     lawyerRegistrationNo : z.string().min(7).max(7),
     jobTitle : z.string(),
