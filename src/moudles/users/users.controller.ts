@@ -10,10 +10,12 @@ import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 const userRouter = Router()
 
-userRouter.post("/addUsers",
-  validation(UV.addUsersByAdminSchema),
+userRouter.post(
+  "/addUsers",
   authentication(TokenType.access),
-  authorization(Role.ADMIN , Role.STAFF),
+  authorization(Role.ADMIN, Role.STAFF),
+  MulterHost({ customExtension: allowedExtensions.image }).single("profile"),
+  validation(UV.addUsersByAdminSchema),
   US.addUsersByAdmin
 );
 

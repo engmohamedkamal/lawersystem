@@ -11,7 +11,10 @@ export const addUsersByAdminSchema = {
     .email("invalid email format"),
     password : z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
     UserName : z.string().min(3).max(40).trim(),
-    phone : z.string()
+    phone : z.string().regex(/^01[0125][0-9]{8}$/),
+    role : z.nativeEnum(Role)!,
+    lawyerRegistrationNo : z.string(),
+    jobTitle : z.string(),
 }).required()
 }
 

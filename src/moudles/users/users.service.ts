@@ -10,17 +10,36 @@ import cloudinary from "../../utils/cloudInary";
 class usersService {
     constructor(){}
 
-    addUsersByAdmin = async (req:Request,res:Response,next:NextFunction)=>{
-            const { email, password, phone, UserName  } : addUsersByAdminSchemaType = req.body;
-    
-            if (await UserModel.findOne({email})){
-                throw new AppError("email already exist" , 409)
-            }
-    
-            const hash = await HASH(password)
-            const user = new UserModel({email , password : hash , phone , UserName  })
-            await user.save()
-            return res.status(201).json({message : "done, user add success", user})
+    addUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
+         const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role}: addUsersByAdminSchemaType = req.body;
+
+         if (await UserModel.findOne({ email })) {
+           throw new AppError("email already exist", 409);
+         }
+
+         const hash = await HASH(password);
+
+         let profilePhoto: { url: string; publicId: string } | undefined;
+
+         if (req.file) {
+           const result = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
+           profilePhoto = { url: result.secure_url, publicId: result.public_id };
+         }
+
+         const user = new UserModel({
+           email,
+           password: hash,
+           phone,
+           UserName,
+           jobTitle,
+           lawyerRegistrationNo,
+           role,
+           ...(profilePhoto ? { ProfilePhoto: profilePhoto } : {}),
+         });
+
+            await user.save();
+
+            return res.status(201).json({ message: "done, user add success", user });
         };
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {
@@ -143,7 +162,7 @@ class usersService {
         message: "Profile photo updated",
         user,
       });
-    };
+        };
 
 
 
