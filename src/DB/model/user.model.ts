@@ -29,6 +29,7 @@ const UserSchema = new mongoose.Schema<IUser>({
     email : {type : String , required : true , unique : true , trim : true},
     password : {type : String , required : true},
     jobTitle: { type: String },
+    lawyerRegistrationNo: { type: String , length : 7 },
     ProfilePhoto: {
         url:{ type : String},
         PublicId: { type : String}
