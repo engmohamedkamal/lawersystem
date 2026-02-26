@@ -29,7 +29,7 @@ const limiter = rateLimit({
 const bootStrap = ()=>{
     app.use(express.json())
     app.use(cors({
-     origin: "*",
+     origin: true,
      credentials: true
     }))
     app.use(helmet())
