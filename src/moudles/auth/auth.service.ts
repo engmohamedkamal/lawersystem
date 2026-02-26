@@ -51,7 +51,7 @@ class authService {
         //access token
         const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName},
             signature : process.env.ACCESS_TOKEN!,
-            options : {expiresIn : "1h" , jwtid }
+            options : {expiresIn : "5m" , jwtid }
         })
 
         //refresh token
@@ -63,7 +63,7 @@ class authService {
         res.cookie("refresh_token", refresh_token, {
            httpOnly: true, 
            secure: process.env.NODE_ENV === "production", 
-           sameSite: "lax", 
+           sameSite: "none", 
            maxAge: 1000 * 60 * 60 * 24 * 365, 
         });
 
@@ -96,6 +96,8 @@ class authService {
             }
         }
 
+        if (user.isDeleted) throw new AppError("account is frozen", 403);
+
         const accessJti = uuidv4();
         const access_token = await generateToken({
             payload: { id: user._id, role: user.role },
@@ -121,13 +123,13 @@ class authService {
         res.cookie("refresh_token", new_refresh_token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            sameSite: "none",
             maxAge: 1000 * 60 * 60 * 24 * 365,
         });
 
           return res.status(200).json({ message: "success", access_token });
  
-};
+    };
 
 
     logout = async (req: Request, res: Response, next: NextFunction) => {

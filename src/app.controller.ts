@@ -30,6 +30,7 @@ const bootStrap = ()=>{
     app.use(express.json())
     app.use(cors({
      origin: "*",
+     credentials: true
     }))
     app.use(helmet())
     app.set("trust proxy" , 1)

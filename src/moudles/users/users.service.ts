@@ -52,7 +52,7 @@ class usersService {
              filter.role = role;
            }
 
-           const users = await UserModel.find(filter).select("_id UserName role");
+           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt isDeleted ");
 
            return res.status(200).json({ message: "done", users });
         };
@@ -60,7 +60,7 @@ class usersService {
     getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as getUserByIdParamsType
 
-        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt ")
+        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt isDeleted ")
 
         if (!user) {
             throw new AppError("user not found" , 404)
@@ -86,7 +86,7 @@ class usersService {
             userId,
             {$set : body},
             { returnDocument: "after", runValidators: true }
-        ).select("_id UserName email phone role createdAt updatedAt");
+        ).select("UserName, email, phone, jobTitle, department, role, lawyerRegistrationNo, permissions, password");
 
         if (!user) {
             throw new AppError("user not found", 404)

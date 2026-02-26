@@ -30,7 +30,6 @@ export const authentication = (tokenType : TokenType = TokenType.access)=>{
     if (req.user?.isDeleted) {
         throw new AppError("account is frozen", 403);
     }
-
     return next()
 }
 }

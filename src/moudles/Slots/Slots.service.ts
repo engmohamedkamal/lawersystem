@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../utils/classError";
 import AvailabilitySlotModel from "../../DB/model/AvailabilitySlot.model";
 import { createSlotSchemaType } from "./Slots.validation";
+import UserModel, { Role } from "../../DB/model/user.model";
 
 class slotsService {
   create = async (req: Request, res: Response, next: NextFunction) => {
@@ -12,6 +13,10 @@ class slotsService {
 
     if (!(start < end)) throw new AppError("endAt must be after startAt", 400);
     if (start.getTime() < Date.now()) throw new AppError("Cannot create slot in the past", 400);
+
+    const lawyer = await UserModel.findById(assignedTo).select("_id role");
+    if (!lawyer) throw new AppError("assignedTo user not found", 404);
+    if (lawyer.role !== Role.LAWYER) throw new AppError("assignedTo must be a LAWYER", 400);
 
     const slot = await AvailabilitySlotModel.create({
       assignedTo,
