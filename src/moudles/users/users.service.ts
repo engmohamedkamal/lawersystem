@@ -60,7 +60,7 @@ class usersService {
     getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as getUserByIdParamsType
 
-        const user = await UserModel.findById(userId).select("_id UserName email phone role createdAt updatedAt")
+        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt ")
 
         if (!user) {
             throw new AppError("user not found" , 404)

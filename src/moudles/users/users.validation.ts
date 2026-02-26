@@ -23,7 +23,6 @@ export const getUsersSchema = {
   query: z.object({
       role: z.nativeEnum(Role)!.optional(),
     })
-    .required(),
 };
 
 
