@@ -1,22 +1,31 @@
 import z from "zod";
 
 export const createSlotSchema = {
-  body: z
-    .object({
-      assignedTo: z.string().min(1),
-      startAt: z.string().datetime(),
-      endAt: z.string().datetime(),
-    })
-    .required(),
+  body: z.object({
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+  }).required().refine((data) => data.endAt > data.startAt, {
+    message: "endAt must be after startAt",
+    path: ["endAt"],
+  }),
 };
 
-export const availableSlotsSchema = {
-  query: z
-    .object({
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
-    })
-    .required(),
+export const updateSlotSchema = {
+  body: z.object({
+    status: z.enum(["AVAILABLE", "BOOKED", "CANCELLED"]).optional(),
+    startAt: z.coerce.date().optional(),
+    endAt: z.coerce.date().optional(),
+  }),
+  params: z.object({
+    id: z.string().min(1),
+  }),
 };
 
-export type createSlotSchemaType = z.infer<typeof createSlotSchema.body>;
-export type availableSlotsSchemaType = z.infer<typeof availableSlotsSchema.query>;
+export const slotParamsSchema = {
+  params: z.object({
+    id: z.string().min(1),
+  }),
+};
+
+export type CreateSlotType = z.infer<typeof createSlotSchema.body>;
+export type UpdateSlotType = z.infer<typeof updateSlotSchema.body>;

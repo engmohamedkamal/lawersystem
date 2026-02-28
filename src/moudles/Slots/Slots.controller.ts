@@ -1,23 +1,49 @@
 import { Router } from "express";
 import { validation } from "../../middleware/validation";
+import * as SV from "./Slots.validation";
+import SS from "./Slots.service";
 import { authentication } from "../../middleware/authentication";
-import { authorization } from "../../middleware/authorization";
 import { TokenType } from "../../utils/token";
+import { authorization } from "../../middleware/authorization";
 import { Role } from "../../DB/model/user.model";
-import * as SV  from "../Slots/Slots.validation";
-import  SS from "./Slots.service";
 
+const slotRouter = Router();
 
-const slotsRouter = Router();
-
-slotsRouter.post(
-  "/create",
+slotRouter.post(
+  "/createSlot",
   authentication(TokenType.access),
-  authorization(Role.ADMIN),
+  authorization(Role.ADMIN , Role.STAFF),
   validation(SV.createSlotSchema),
-  SS.create
+  SS.createSlot
 );
 
-slotsRouter.get("/available", validation(SV.availableSlotsSchema), SS.available);
+slotRouter.get("/",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN , Role.STAFF),
+  SS.getSlots);
 
-export default slotsRouter;
+slotRouter.get(
+  "/:id",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN , Role.STAFF),
+  validation(SV.slotParamsSchema),
+  SS.getSlotById
+);
+
+slotRouter.put(
+  "/:id",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN , Role.STAFF),
+  validation(SV.updateSlotSchema),
+  SS.updateSlot
+);
+
+slotRouter.delete(
+  "/:id",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN , Role.STAFF),
+  validation(SV.slotParamsSchema),
+  SS.deleteSlot
+);
+
+export default slotRouter;

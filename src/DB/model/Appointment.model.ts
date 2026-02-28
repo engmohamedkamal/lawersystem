@@ -2,26 +2,35 @@ import mongoose, { Types } from "mongoose";
 
 export interface IAppointment extends mongoose.Document {
   _id: Types.ObjectId;
-  client: Types.ObjectId;
+  fullName : string,
+  phone : string,
+  email : string,
   slot: Types.ObjectId;
   serviceType: string;
-  caseType: Types.ObjectId;
+  caseType?: string;
   description?: string;
+  expireAt?: Date,
   status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
   handledBy?: Types.ObjectId;
 }
 
 const AppointmentSchema = new mongoose.Schema<IAppointment>(
   {
-    client: { type: Types.ObjectId, ref: "Client", required: true },
+    fullName : {type : String , required : true , minLength : 2 , maxLength : 50 ,trim : true},
+    phone : {type : String , required : true},
+    email : {type : String , trim : true},
     slot: { type: Types.ObjectId, ref: "AvailabilitySlot", required: true, unique: true },
-    serviceType: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 },
-    caseType: { type: Types.ObjectId, ref: "CaseType", required: true },
+    serviceType: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 , options : true },
+    caseType: { type: String, required: true },
+    expireAt: { type : Date},
     description: { type: String, trim: true, maxLength: 2000 },
     handledBy: { type: Types.ObjectId, ref: "User" },
+
   },
   {timestamps: true, toObject: { virtuals: true }, toJSON: { virtuals: true } }
 );
+
+AppointmentSchema.index({ expireAt : 1 } , { expireAfterSeconds : 0 , partialFilterExpression: { expireAt: { $exists: true }, status: "CONFIRMED" }, })
 
 const AppointmentModel = mongoose.models.Appointment || mongoose.model<IAppointment>("Appointment", AppointmentSchema);
 

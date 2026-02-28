@@ -51,7 +51,7 @@ class authService {
         //access token
         const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName},
             signature : process.env.ACCESS_TOKEN!,
-            options : {expiresIn : "5m" , jwtid }
+            options : {expiresIn : "3d" , jwtid }
         })
 
         //refresh token
