@@ -1,5 +1,9 @@
 import mongoose, { Types } from "mongoose";
 
+
+export const APPOINTMENT_STATUSES = ["CONFIRMED", "CANCELLED", "COMPLETED"] as const;
+export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
+
 export interface IAppointment extends mongoose.Document {
   _id: Types.ObjectId;
   fullName : string,
@@ -10,7 +14,7 @@ export interface IAppointment extends mongoose.Document {
   caseType?: string;
   description?: string;
   expireAt?: Date,
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  status: AppointmentStatus,
   handledBy?: Types.ObjectId;
 }
 
@@ -23,6 +27,7 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
     serviceType: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 , options : true },
     caseType: { type: String, required: true },
     expireAt: { type : Date},
+    status : { type : String , enum : APPOINTMENT_STATUSES , default : "CONFIRMED", required : true  },
     description: { type: String, trim: true, maxLength: 2000 },
     handledBy: { type: Types.ObjectId, ref: "User" },
 
@@ -30,7 +35,6 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
   {timestamps: true, toObject: { virtuals: true }, toJSON: { virtuals: true } }
 );
 
-AppointmentSchema.index({ expireAt : 1 } , { expireAfterSeconds : 0 , partialFilterExpression: { expireAt: { $exists: true }, status: "CONFIRMED" }, })
 
 const AppointmentModel = mongoose.models.Appointment || mongoose.model<IAppointment>("Appointment", AppointmentSchema);
 

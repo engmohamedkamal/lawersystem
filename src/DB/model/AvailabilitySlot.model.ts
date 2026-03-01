@@ -28,9 +28,7 @@ const AvailabilitySlotSchema = new mongoose.Schema<IAvailabilitySlot>(
   }
 );
 
-AvailabilitySlotSchema.index(
-  { startAt: 1, endAt: 1 },
-);
+AvailabilitySlotSchema.index({ startAt: 1, endAt: 1 },);
 const AvailabilitySlotModel = mongoose.models.AvailabilitySlot || mongoose.model<IAvailabilitySlot>("AvailabilitySlot", AvailabilitySlotSchema);
 
 export default AvailabilitySlotModel;

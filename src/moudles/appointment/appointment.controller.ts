@@ -22,9 +22,40 @@ const bookingLimiter = rateLimit({
 
     appointmentRouter.post(
       "/BOOKED",
-      
+      bookingLimiter,
       validation(AV.createAppointmentSchema),
       AS.createAppointment
     );
+
+    appointmentRouter.get(
+      "/",
+      authentication(TokenType.access),
+      authorization(Role.ADMIN, Role.STAFF),
+      AS.getAppointments
+    );
+
+    appointmentRouter.get(
+      "/:id",
+      authentication(TokenType.access),
+      authorization(Role.ADMIN, Role.STAFF),
+      validation(AV.paramsSchema),
+      AS.getAppointmentById
+    );
+
+    appointmentRouter.patch(
+      "/:id/cancel",
+      authentication(TokenType.access),
+      authorization(Role.ADMIN, Role.STAFF),
+      validation(AV.paramsSchema),
+      AS.cancelAppointment
+   );
+
+   appointmentRouter.patch(
+      "/:id/status",
+      authentication(TokenType.access),
+      authorization(Role.ADMIN, Role.STAFF),
+      validation(AV.updateStatusSchema),
+      AS.updateAppointmentStatus
+  );
 
     export default appointmentRouter

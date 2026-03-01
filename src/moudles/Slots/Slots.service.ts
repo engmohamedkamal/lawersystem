@@ -6,7 +6,7 @@ import UserModel from "../../DB/model/user.model";
 class SlotService {
   constructor() {}
 
-  // Create one or multiple slots
+  
   createSlot = async (req: Request, res: Response, next: NextFunction) => {
     const {  startAt, endAt } = req.body;
 
@@ -14,7 +14,11 @@ class SlotService {
     const end = new Date(endAt)
 
     if(start.getTime() < Date.now()){
-      throw new AppError ("cannot create slot in the paste" , 400)
+      throw new AppError ("cannot create slot in the past" , 400)
+    }
+
+    if (end.getTime() <= start.getTime()) {
+      throw new AppError("endAt must be after startAt", 400);
     }
     
   
@@ -37,7 +41,7 @@ class SlotService {
     return res.status(201).json({ message: "Slot created successfully", slot });
   };
 
-  // Get all available slots (optionally filter by assignedTo)
+  
   getSlots = async (req: Request, res: Response, next: NextFunction) => {
     const { status, page = 1, limit = 10 } = req.query;
 
@@ -48,8 +52,8 @@ class SlotService {
 
     const [slots, total] = await Promise.all([
       AvailabilitySlotModel.find(filter)
-        .populate("UserName email")
-        .populate("bookedBy", "fullName email")
+        .populate("appointment")
+        .populate("createdBy", "UserName email")
         .sort({ startAt: 1 })
         .skip(skip)
         .limit(Number(limit)),
@@ -65,21 +69,19 @@ class SlotService {
     });
   };
 
-  // Get single slot by ID
+
   getSlotById = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
     const slot = await AvailabilitySlotModel.findById(id)
-      .populate("UserName email")
-      .populate("bookedBy", "fullName email")
-      .populate("appointment");
+      .populate("appointment")
+      .populate("createdBy", "UserName email")
 
     if (!slot) throw new AppError("Slot not found", 404);
 
     return res.status(200).json({ message: "success", slot });
   };
 
-  // Update slot status or times
   updateSlot = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
     const { status, startAt, endAt } = req.body;
@@ -91,6 +93,17 @@ class SlotService {
       throw new AppError("Cannot update a booked slot", 400);
     }
 
+    const newStart = startAt ? new Date(startAt) : new Date(slot.startAt);
+    const newEnd = endAt ? new Date(endAt) : new Date(slot.endAt);
+
+    if (startAt && newStart.getTime() < Date.now()) {
+      throw new AppError("cannot update slot to the past", 400);
+    }
+
+    if (newEnd.getTime() <= newStart.getTime()) {
+      throw new AppError("endAt must be after startAt", 400);
+    }
+
     if (status) slot.status = status;
     if (startAt) slot.startAt = startAt;
     if (endAt) slot.endAt = endAt;
@@ -99,7 +112,6 @@ class SlotService {
     return res.status(200).json({ message: "Slot updated successfully", slot });
   };
 
-  // Delete (cancel) a slot
   deleteSlot = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
