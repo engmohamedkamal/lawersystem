@@ -41,6 +41,31 @@ class SlotService {
     return res.status(201).json({ message: "Slot created successfully", slot });
   };
 
+
+  getAvailableSlots = async (req: Request, res: Response, next: NextFunction) => {
+    const { page = 1, limit = 10 } = req.query
+
+    const pageNum  = Math.max(Number(page), 1)
+    const limitNum = Math.min(Math.max(Number(limit), 1), 100)
+    const skip     = (pageNum - 1) * limitNum
+
+    const [slots, total] = await Promise.all([
+      AvailabilitySlotModel.find({ status: "AVAILABLE", startAt: { $gte: new Date() } })
+        .sort({ startAt: 1 })
+        .skip(skip)
+        .limit(limitNum),
+      AvailabilitySlotModel.countDocuments({ status: "AVAILABLE", startAt: { $gte: new Date() } }),
+    ])
+
+    return res.status(200).json({
+      message:    "success",
+      total,
+      page:       pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      slots,
+    })
+  }
+
   
   getSlots = async (req: Request, res: Response, next: NextFunction) => {
     const { status, page = 1, limit = 10 } = req.query;

@@ -12,6 +12,7 @@ import userRouter from "./moudles/users/users.controller"
 import cookieParser from "cookie-parser";
 import slotsRouter from "./moudles/Slots/Slots.controller"
 import appointmentRouter from "./moudles/appointment/appointment.controller"
+import CaseTypeRouter from "./moudles/CaseType/Case.controller"
 
 
 
@@ -42,6 +43,7 @@ const bootStrap = ()=>{
     app.use("/users" , userRouter)
     app.use("/slots", slotsRouter);
     app.use("/appointment", appointmentRouter);
+    app.use("/CaseType", CaseTypeRouter);
 
     connectionDB()
 

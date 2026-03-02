@@ -17,6 +17,10 @@ slotRouter.post(
   SS.createSlot
 );
 
+slotRouter.get("/available",
+  SS.getAvailableSlots
+);
+
 slotRouter.get("/",
   authentication(TokenType.access),
   authorization(Role.ADMIN , Role.STAFF),

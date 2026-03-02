@@ -11,7 +11,7 @@ export interface IAppointment extends mongoose.Document {
   email : string,
   slot: Types.ObjectId;
   serviceType: string;
-  caseType?: string;
+  caseType?: Types.ObjectId;
   description?: string;
   expireAt?: Date,
   status: AppointmentStatus,
@@ -25,12 +25,11 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
     email : {type : String , trim : true},
     slot: { type: Types.ObjectId, ref: "AvailabilitySlot", required: true, unique: true },
     serviceType: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 , options : true },
-    caseType: { type: String, required: true },
+    caseType: { type: Types.ObjectId, ref : "CaseType" , required: true },
     expireAt: { type : Date},
     status : { type : String , enum : APPOINTMENT_STATUSES , default : "CONFIRMED", required : true  },
     description: { type: String, trim: true, maxLength: 2000 },
     handledBy: { type: Types.ObjectId, ref: "User" },
-
   },
   {timestamps: true, toObject: { virtuals: true }, toJSON: { virtuals: true } }
 );

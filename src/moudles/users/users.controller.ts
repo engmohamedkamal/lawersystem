@@ -19,7 +19,7 @@ userRouter.post(
   US.addUsersByAdmin
 );
 
-userRouter.get("/",
+userRouter.get("/", 
   validation(UV.getUsersSchema),
   authentication(TokenType.access),
   authorization(Role.ADMIN , Role.STAFF),
