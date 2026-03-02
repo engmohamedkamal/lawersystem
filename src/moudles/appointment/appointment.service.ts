@@ -10,7 +10,7 @@ class AppointmentService {
     constructor(){}
 
     createAppointment = async (req: Request, res: Response, next: NextFunction) => {
-        const {fullName, phone, email, slot: slotId, serviceType, caseType, description} : bookSchemaType = req.body
+        const {fullName, phone, email, slot: slotId, serviceType, caseType : caseTypeId , description} : bookSchemaType = req.body
 
         const slot = await AvailabilitySlotModel.findById(slotId)
         if(!slot) throw new AppError("slot not found" , 404)
@@ -29,7 +29,7 @@ class AppointmentService {
                     email,
                     slot: slotId,
                     serviceType,
-                    caseType,
+                    caseType: caseTypeId,
                     description,
                     expireAt,          
                     status : "CONFIRMED",
