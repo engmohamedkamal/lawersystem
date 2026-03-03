@@ -27,6 +27,14 @@ SettingsRouter.put(
     SS.upsertSettings
 );
 
+SettingsRouter.put(
+    "/work-hours",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(SV.updateWorkHoursSchema),
+    SS.updateWorkHours
+);
+
 SettingsRouter.patch(
     "/logo",
     authentication(TokenType.access),

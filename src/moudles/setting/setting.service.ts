@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import SettingsModel from "../../DB/model/settings.model";
 import { AppError } from "../../utils/classError";
-import { UpsertSettingsType } from "./setting.validation";
+import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 
@@ -28,6 +28,23 @@ class SettingsService {
 
         return res.status(200).json({ message: "Settings saved successfully", settings })
     }
+
+     updateWorkHours = async (req: Request, res: Response, next: NextFunction) => {
+      
+          const { workHours }: UpdateWorkHoursType = req.body
+
+          const allDays = workHours.flatMap(w => w.days)
+          if (new Set(allDays).size !== allDays.length) {
+            throw new AppError("duplicate days are not allowed", 400)
+          }
+
+          const settings = await SettingsModel.findOneAndUpdate(
+            {},
+            { $set: { workHours } },
+            { new: true, upsert: true }
+          )
+          return res.status(200).json({ message: "Work hours updated successfully", settings })
+   }
 
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {
          if (!req.file) throw new AppError("No image uploaded", 400)
