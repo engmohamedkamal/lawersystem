@@ -11,7 +11,7 @@ import { Role } from "../../DB/model/user.model";
     const bookingLimiter = rateLimit({
       windowMs: 10 * 60 * 1000, 
       max: 1,
-      message: { message: "too many booking attempts please try again later." },
+      message: { message: "تم تجاوز الحد المسموح لمحاولات الحجز. حاول مرة أخرى لاحقًا" },
       standardHeaders: true,
       legacyHeaders: false,
       skipFailedRequests: true, 
