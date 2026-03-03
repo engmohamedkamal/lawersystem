@@ -36,4 +36,13 @@ SettingsRouter.patch(
 );
 
 
+SettingsRouter.delete(
+    "/logo",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    SS.deleteLogo
+);
+
+
+
 export default SettingsRouter

@@ -46,11 +46,28 @@ class SettingsService {
          )
 
          return res.status(200).json({ message: "Logo updated successfully", settings })
+
+
+}
+
+
+    deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
+        
+         const settings = await SettingsModel.findOne()
+         if (!settings) throw new AppError("Settings not found", 404)
+         if (!settings.logo) throw new AppError("No logo to delete", 400)
+
+         if (settings.logoPublicId) {
+           await cloudinary.uploader.destroy(settings.logoPublicId)
+         }
+
+         settings.logo        = undefined
+         settings.logoPublicId = undefined
+         await settings.save()
+
+         return res.status(200).json({ message: "Logo deleted successfully" })
+       }
   }
 
-
-
-
-} 
 
 export default new SettingsService

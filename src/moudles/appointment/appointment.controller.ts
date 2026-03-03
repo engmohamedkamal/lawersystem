@@ -11,7 +11,7 @@ import { Role } from "../../DB/model/user.model";
     const bookingLimiter = rateLimit({
       windowMs: 10 * 60 * 1000, 
       max: 1,
-      message: { message: "تم تجاوز الحد المسموح لمحاولات الحجز. حاول مرة أخرى لاحقًا" },
+      message: { message:" نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 10 دقائق."},
       standardHeaders: true,
       legacyHeaders: false,
       skipFailedRequests: true, 
