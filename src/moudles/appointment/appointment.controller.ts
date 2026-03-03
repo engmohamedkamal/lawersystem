@@ -9,9 +9,9 @@ import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
 
     const bookingLimiter = rateLimit({
-      windowMs: 10 * 60 * 1000, 
+      windowMs: 24 * 60 * 60 * 1000, 
       max: 1,
-      message: { message:" نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 10 دقائق."},
+      message: { message:" نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة."},
       standardHeaders: true,
       legacyHeaders: false,
       skipFailedRequests: true, 
