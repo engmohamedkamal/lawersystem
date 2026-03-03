@@ -33,7 +33,7 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
   },
   {timestamps: true, toObject: { virtuals: true }, toJSON: { virtuals: true } }
 );
-
+AppointmentSchema.index({ status: 1, expireAt: 1 });
 
 const AppointmentModel = mongoose.models.Appointment || mongoose.model<IAppointment>("Appointment", AppointmentSchema);
 

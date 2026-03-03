@@ -14,6 +14,7 @@ import slotsRouter from "./moudles/Slots/Slots.controller"
 import appointmentRouter from "./moudles/appointment/appointment.controller"
 import CaseTypeRouter from "./moudles/CaseType/Case.controller"
 import SettingsRouter from "./moudles/setting/setting.controller"
+import { startCronJobs } from "./jobs/scheduler"
 
 
 
@@ -48,6 +49,8 @@ const bootStrap = ()=>{
     app.use("/SettingsService", SettingsRouter);
 
     connectionDB()
+
+    startCronJobs(); 
 
     app.get("/",(req:Request,res:Response,next:NextFunction)=>{
         return res.status(200).json({message:`welcome on my app`})
