@@ -10,7 +10,7 @@ export interface IAppointment extends mongoose.Document {
   phone : string,
   email : string,
   slot: Types.ObjectId;
-  serviceType: string;
+  serviceType?: string;
   caseType?: Types.ObjectId;
   description?: string;
   expireAt?: Date,
@@ -24,7 +24,7 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
     phone : {type : String , required : true},
     email : {type : String , trim : true},
     slot: { type: Types.ObjectId, ref: "AvailabilitySlot", required: true, unique: true },
-    serviceType: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 , options : true },
+    serviceType: { type: String, trim: true, minLength: 2, maxLength: 100 },
     caseType: { type: Types.ObjectId, ref : "CaseType" , required: true },
     expireAt: { type : Date},
     status : { type : String , enum : APPOINTMENT_STATUSES , default : "CONFIRMED", required : true  },

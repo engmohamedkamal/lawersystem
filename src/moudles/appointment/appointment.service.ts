@@ -10,17 +10,32 @@ class AppointmentService {
     constructor(){}
 
     createAppointment = async (req: Request, res: Response, next: NextFunction) => {
-        const {fullName, phone, email, slot: slotId, serviceType, caseType : caseTypeId , description} : bookSchemaType = req.body
+        const {fullName, phone, email, slot: slotId , caseType : caseTypeId , description} : bookSchemaType = req.body
 
-        const slot = await AvailabilitySlotModel.findById(slotId)
-        if(!slot) throw new AppError("slot not found" , 404)
-        if(slot.status !== "AVAILABLE") throw new AppError("slot is not available ",409)
+        // const slot = await AvailabilitySlotModel.findById(slotId)
+        // if(!slot) throw new AppError("slot not found" , 404)
+        // if(slot.status !== "AVAILABLE") throw new AppError("slot is not available ",409)
 
-        const expireAt = slot.endAt
+        // const expireAt = slot.endAt
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
+
+
+            const slot = await AvailabilitySlotModel.findOneAndUpdate(
+            { _id: slotId, status: "AVAILABLE" },
+            { $set: { status: "BOOKED" } },
+            { session, returnDocument: "after" }
+            );
+
+            if (!slot) throw new AppError("slot is not available", 409);
+
+            if (new Date(slot.endAt).getTime() <= Date.now()) {
+              throw new AppError("slot already ended", 400);
+            }
+
+            const expireAt = slot.endAt;
 
             const appointment = await AppointmentModel.create(
                 [{
@@ -28,7 +43,6 @@ class AppointmentService {
                     phone,
                     email,
                     slot: slotId,
-                    serviceType,
                     caseType: caseTypeId,
                     description,
                     expireAt,          
@@ -37,9 +51,9 @@ class AppointmentService {
                 { session }
             );
 
-            await AvailabilitySlotModel.findByIdAndUpdate(
-                slotId,
-                { status: "BOOKED", appointment: appointment[0]._id },
+            await AvailabilitySlotModel.updateOne(
+                { _id: slotId },
+                { $set: { appointment: appointment[0]._id } },
                 { session }
             );
 

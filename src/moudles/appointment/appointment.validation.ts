@@ -11,11 +11,9 @@ export const createAppointmentSchema = {
       phone: z.string().trim().min(6),
       email: z.string().trim().toLowerCase().email("invalid email format").optional(),
       slot: z.string().min(1, "slot is required"),
-      serviceType: z.string().trim().min(2).max(100),
       caseType: z.string().min(1, "caseType is required"),
       description: z.string().trim().max(2000).optional(),
-    })
-    .required(),
+    }).required(),
 };
 
 

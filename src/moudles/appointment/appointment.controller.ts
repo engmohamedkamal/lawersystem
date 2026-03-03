@@ -8,22 +8,20 @@ import AS from "./appointment.service";
 import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
 
-const bookingLimiter = rateLimit({
-        windowMs : 5 * 60 * 100,
-        max : 1,
-        message : {
-            message : "too many booking attempts please try again later ."
-        },
-        standardHeaders : true,
-        legacyHeaders : true,
-    })
-
+    const bookingLimiter = rateLimit({
+      windowMs: 10 * 60 * 1000, 
+      max: 1,
+      message: { message: "too many booking attempts please try again later." },
+      standardHeaders: true,
+      legacyHeaders: false,
+      skipFailedRequests: true, 
+    });
     const appointmentRouter = Router()
 
     appointmentRouter.post(
       "/BOOKED",
-      bookingLimiter,
       validation(AV.createAppointmentSchema),
+      // bookingLimiter,
       AS.createAppointment
     );
 
