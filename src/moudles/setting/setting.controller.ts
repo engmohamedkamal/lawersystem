@@ -4,6 +4,9 @@ import { authorization } from "../../middleware/authorization";
 import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
 import SS from "./setting.service";
+import { validation } from "../../middleware/validation";
+import * as SV from "./setting.validation";
+import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 
 
@@ -14,7 +17,23 @@ SettingsRouter.get("/",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
     SS.getSettings
-)
+);
+
+SettingsRouter.put(
+    "/",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(SV.upsertSettingsSchema),
+    SS.upsertSettings
+);
+
+SettingsRouter.patch(
+    "/logo",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    MulterHost({ customExtension: allowedExtensions.image, fileSizeMB: 3 }).single("logo"),
+    SS.updateLogo
+);
 
 
 export default SettingsRouter
