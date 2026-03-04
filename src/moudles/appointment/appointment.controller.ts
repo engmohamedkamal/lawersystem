@@ -8,20 +8,20 @@ import AS from "./appointment.service";
 import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
 
-    // const bookingLimiter = rateLimit({
-    //   windowMs: 24 * 60 * 60 * 1000, 
-    //   max: 1,
-    //   message: { message:" نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة."},
-    //   standardHeaders: true,
-    //   legacyHeaders: false,
-    //   skipFailedRequests: true, 
-    // });
+    const bookingLimiter = rateLimit({
+      windowMs: 24 * 60 * 60 * 1000, 
+      max: 1,
+      message: { message:" نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة."},
+      standardHeaders: true,
+      legacyHeaders: false,
+      skipFailedRequests: true, 
+    });
     const appointmentRouter = Router()
 
     appointmentRouter.post(
       "/BOOKED",
       validation(AV.createAppointmentSchema),
-      // bookingLimiter,
+      bookingLimiter,
       AS.createAppointment
     );
 
