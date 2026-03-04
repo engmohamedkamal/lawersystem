@@ -16,6 +16,7 @@ export interface IAppointment extends mongoose.Document {
   expireAt?: Date,
   status: AppointmentStatus,
   handledBy?: Types.ObjectId;
+  ip: string
 }
 
 const AppointmentSchema = new mongoose.Schema<IAppointment>(
@@ -30,6 +31,7 @@ const AppointmentSchema = new mongoose.Schema<IAppointment>(
     status : { type : String , enum : APPOINTMENT_STATUSES , default : "CONFIRMED", required : true  },
     description: { type: String, trim: true, maxLength: 2000 },
     handledBy: { type: Types.ObjectId, ref: "User" },
+    ip: { type: String }
   },
   {timestamps: true, toObject: { virtuals: true }, toJSON: { virtuals: true } }
 );

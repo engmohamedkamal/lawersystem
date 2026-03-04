@@ -11,6 +11,7 @@ class AppointmentService {
 
     createAppointment = async (req: Request, res: Response, next: NextFunction) => {
         const {fullName, phone, email, slot: slotId , caseType : caseTypeId , description} : bookSchemaType = req.body
+        const ip = req.ip
 
         // const slot = await AvailabilitySlotModel.findById(slotId)
         // if(!slot) throw new AppError("slot not found" , 404)
@@ -37,6 +38,18 @@ class AppointmentService {
 
             const expireAt = slot.endAt;
 
+
+            const DAY = 24 * 60 * 60 * 1000;
+
+            const existing = await AppointmentModel.findOne({
+            ip: req.ip,
+            createdAt: { $gte: new Date(Date.now() - DAY) }
+            });
+
+            if (existing) {
+            throw new AppError("نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة. ",429);
+            }
+
             const appointment = await AppointmentModel.create(
                 [{
                     fullName,
@@ -47,6 +60,7 @@ class AppointmentService {
                     description,
                     expireAt,          
                     status : "CONFIRMED",
+                    ip
                 }],
                 { session }
             );
