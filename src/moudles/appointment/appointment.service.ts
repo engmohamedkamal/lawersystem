@@ -4,6 +4,7 @@ import { AppError } from "../../utils/classError";
 import mongoose from "mongoose";
 import AppointmentModel from "../../DB/model/Appointment.model";
 import { bookSchemaType, updateStatusType } from "./appointment.validation";
+import { getFingerprint } from "../../utils/getFingerprint";
 
 
 class AppointmentService {
@@ -39,6 +40,20 @@ class AppointmentService {
             const expireAt = slot.endAt;
 
 
+            const fingerprint = getFingerprint(req);
+
+            const DAY = 24 * 60 * 60 * 1000;
+
+            const existing = await AppointmentModel.findOne({
+            fingerprint,
+            createdAt: { $gte: new Date(Date.now() - DAY) }
+            });
+
+            if (existing) {
+            throw new AppError("يمكنك الحجز مرة واحدة فقط كل 24 ساعة",429);
+            }
+
+
             const appointment = await AppointmentModel.create(
                 [{
                     fullName,
@@ -49,7 +64,7 @@ class AppointmentService {
                     description,
                     expireAt,          
                     status : "CONFIRMED",
-                    ip
+                    fingerprint
                 }],
                 { session }
             );

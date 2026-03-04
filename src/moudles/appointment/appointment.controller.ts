@@ -21,7 +21,7 @@ import { Role } from "../../DB/model/user.model";
     appointmentRouter.post(
       "/BOOKED",
       validation(AV.createAppointmentSchema),
-      bookingLimiter,
+      // bookingLimiter,
       AS.createAppointment
     );
 
