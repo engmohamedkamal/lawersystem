@@ -4,6 +4,7 @@ import { AppError } from "../../utils/classError";
 import mongoose from "mongoose";
 import AppointmentModel from "../../DB/model/Appointment.model";
 import { bookSchemaType, updateStatusType } from "./appointment.validation";
+import { getClientIp } from "../../utils/getClientIp";
 
 
 class AppointmentService {
@@ -40,14 +41,16 @@ class AppointmentService {
 
 
             const DAY = 24 * 60 * 60 * 1000;
+            const clientIp = getClientIp(req);
 
             const existing = await AppointmentModel.findOne({
-            ip: req.ip,
-            createdAt: { $gte: new Date(Date.now() - DAY) }
-            });
+              ip: clientIp,
+              createdAt: { $gte: new Date(Date.now() - DAY) },
+              status: { $ne: "CANCELLED" }
+            }).select("_id createdAt status");
 
             if (existing) {
-            throw new AppError("نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة. ",429);
+              throw new AppError("نظرًا لتجاوز الحد المسموح به لمحاولات الحجز، يُرجى إعادة المحاولة بعد مرور 24 ساعة.",429);
             }
 
             const appointment = await AppointmentModel.create(
