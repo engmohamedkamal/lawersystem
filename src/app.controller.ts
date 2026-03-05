@@ -15,6 +15,7 @@ import appointmentRouter from "./moudles/appointment/appointment.controller"
 import CaseTypeRouter from "./moudles/CaseType/Case.controller"
 import SettingsRouter from "./moudles/setting/setting.controller"
 import { startCronJobs } from "./jobs/scheduler"
+import clientRouter from "./moudles/client/client.controller"
 
 
 
@@ -47,7 +48,8 @@ const bootStrap = ()=>{
     app.use("/appointment", appointmentRouter);
     app.use("/CaseType", CaseTypeRouter);
     app.use("/SettingsService", SettingsRouter);
-
+    app.use("/Client", clientRouter);
+    
     connectionDB()
 
     startCronJobs(); 

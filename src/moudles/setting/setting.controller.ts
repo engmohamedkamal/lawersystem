@@ -43,12 +43,19 @@ SettingsRouter.patch(
     SS.updateLogo
 );
 
-
 SettingsRouter.delete(
     "/logo",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
     SS.deleteLogo
+);
+
+SettingsRouter.put(
+    "/map",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(SV.updateMapSchema),
+    SS.UpdateMap
 );
 
 

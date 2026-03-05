@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import SettingsModel from "../../DB/model/settings.model";
 import { AppError } from "../../utils/classError";
-import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
+import { UpdateMapType, UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 
@@ -29,7 +29,7 @@ class SettingsService {
         return res.status(200).json({ message: "Settings saved successfully", settings })
     }
 
-     updateWorkHours = async (req: Request, res: Response, next: NextFunction) => {
+    updateWorkHours = async (req: Request, res: Response, next: NextFunction) => {
       
           const { workHours }: UpdateWorkHoursType = req.body
 
@@ -44,7 +44,7 @@ class SettingsService {
             { new: true, upsert: true }
           )
           return res.status(200).json({ message: "Work hours updated successfully", settings })
-   }
+    }
 
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {
          if (!req.file) throw new AppError("No image uploaded", 400)
@@ -65,7 +65,7 @@ class SettingsService {
          return res.status(200).json({ message: "Logo updated successfully", settings })
 
 
-}
+    }
 
 
     deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
@@ -83,7 +83,21 @@ class SettingsService {
          await settings.save()
 
          return res.status(200).json({ message: "Logo deleted successfully" })
-       }
+    }
+
+
+    UpdateMap = async (req: Request, res: Response, next: NextFunction) => {
+
+      const { mapEmbedUrl } : UpdateMapType = req.body
+      const settings = await SettingsModel.findOneAndUpdate(
+        {},
+        { $set: { mapEmbedUrl } },
+        { new: true, upsert: true }
+      )
+      return res.status(200).json({ message: "Map updated successfully", settings })
+    }
+
+
   }
 
 

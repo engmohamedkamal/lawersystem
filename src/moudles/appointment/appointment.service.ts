@@ -12,13 +12,7 @@ class AppointmentService {
 
     createAppointment = async (req: Request, res: Response, next: NextFunction) => {
         const {fullName, phone, email, slot: slotId , caseType : caseTypeId , description} : bookSchemaType = req.body
-        const ip = req.ip
 
-        // const slot = await AvailabilitySlotModel.findById(slotId)
-        // if(!slot) throw new AppError("slot not found" , 404)
-        // if(slot.status !== "AVAILABLE") throw new AppError("slot is not available ",409)
-
-        // const expireAt = slot.endAt
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -40,7 +34,7 @@ class AppointmentService {
             const expireAt = slot.endAt;
 
 
-            const fingerprint = getFingerprint(req);
+            const fingerprint = getFingerprint(req , phone);
 
             const DAY = 24 * 60 * 60 * 1000;
 

@@ -23,6 +23,7 @@ export interface ISettings extends mongoose.Document {
   logo?: string;
   logoPublicId?: string; 
   workHours: IWorkHour[];
+  mapEmbedUrl?: string
 }
 
 
@@ -47,6 +48,7 @@ const SettingsSchema = new mongoose.Schema<ISettings>(
     logo: { type: String },
     logoPublicId: { type: String },
     workHours: { type: [WorkHourSchema], default: [] },
+    mapEmbedUrl: { type: String , trim: true}
   },
   { timestamps: true }
 );
