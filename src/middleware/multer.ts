@@ -4,6 +4,15 @@ import { AppError } from "../utils/classError";
 export const allowedExtensions = {
     image: ["image/png", "image/jpeg"],
     video: ["video/mp4"],
+    uploadAnyFiles: [
+        "image/png",
+        "image/jpeg",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        "application/vnd.ms-excel",                                           
+        "application/msword",                                                 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+    ],
 };
 
 type MulterCloudOptions = {

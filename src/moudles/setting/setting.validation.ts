@@ -20,8 +20,14 @@ const workHourSchema = z.object({
   to:   z.string().regex(/^\d{2}:\d{2}$/, "format must be HH:MM e.g. 17:00"),
 }).refine(data => data.from < data.to, {
   message: "to must be after from",
-  path: ["to"],
+  path: ["to"]
 })
+
+export const deleteWorkHourSchema = {
+  params: z.object({
+    day: z.enum([...DAYS] as [string, ...string[]]),
+  }),
+}
 
 export const updateWorkHoursSchema = {
   body: z.object({

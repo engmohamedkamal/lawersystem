@@ -1,6 +1,5 @@
 import mongoose, { Types } from "mongoose";
 
-// ─── Enums ─────────────────────────────────────────────────────────────────
 export const CASE_STATUSES    = ["قيد التحضير", "قيد التنفيذ", "منتهية", "موقوفة", "مؤرشفة"] as const;
 export const PAYMENT_METHODS  = ["كاش", "تحويل بنكي", "شيك"] as const;
 export const PAYMENT_STATUSES = ["لم يُسدد", "سُدد جزئياً", "سُدد بالكامل"] as const;
@@ -107,11 +106,10 @@ export const calcPaymentStatus = (totalAmount: number, paidAmount: number): Paym
   return "سُدد جزئياً";
 };
 
-// LegalCaseSchema.index({ caseNumber: 1 });
-// LegalCaseSchema.index({ client: 1, status: 1 });
-// LegalCaseSchema.index({ caseType: 1, status: 1 });
-// LegalCaseSchema.index({ assignedTo: 1, status: 1 });
-// LegalCaseSchema.index({ isDeleted: 1, status: 1 });
+LegalCaseSchema.index({ client: 1, status: 1 });
+LegalCaseSchema.index({ caseType: 1, status: 1 });
+LegalCaseSchema.index({ assignedTo: 1, status: 1 });
+LegalCaseSchema.index({ isDeleted: 1, status: 1 });
 
 const LegalCaseModel = mongoose.models.LegalCase || mongoose.model<ILegalCase>("LegalCase", LegalCaseSchema);
 export default LegalCaseModel;

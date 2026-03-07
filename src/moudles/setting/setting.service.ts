@@ -38,12 +38,44 @@ class SettingsService {
             throw new AppError("duplicate days are not allowed", 400)
           }
 
+          const existing = await SettingsModel.findOne()
+          const existingDays = existing?.workHours.flatMap((w: { days: string[] }) => w.days) ?? []
+          const newDays = workHours.flatMap(w => w.days)
+          const hasDuplicate = newDays.some(d => existingDays.includes(d))
+          if (hasDuplicate) throw new AppError("day already exists", 400)
+
           const settings = await SettingsModel.findOneAndUpdate(
             {},
-            { $set: { workHours } },
+            { $push: { workHours: { $each: workHours } } },
             { new: true, upsert: true }
           )
           return res.status(200).json({ message: "Work hours updated successfully", settings })
+    }
+
+    deleteWorkHour = async (req: Request, res: Response, next: NextFunction) =>{
+
+      const settings = await SettingsModel.findOne()
+      const { day } = req.params as { day: string }
+      if (!settings) throw new AppError("Settings not configured yet", 404)
+
+      const exists = settings.workHours.some((w: { days: string[] }) => w.days.includes(day))
+      if (!exists) throw new AppError(`day "${day}" not found in work hours`, 404)
+
+      
+      const updatedWorkHours = (settings.workHours as Array<{ days: string[]; from: string; to: string }>)
+        .map(w => ({
+          from: w.from,
+          to:   w.to,
+          days: w.days.filter(d => d !== day),
+        }))
+        .filter(w => w.days.length > 0)
+
+         const updated = await SettingsModel.findOneAndUpdate(
+        {},
+        { $set: { workHours: updatedWorkHours } },
+        { new: true }
+    )
+        return res.status(200).json({ message: `Day "${day}" removed successfully`, settings: updated })
     }
 
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {

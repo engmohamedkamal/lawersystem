@@ -2,7 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 
 
-export const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"] as const;
+export const DAYS = ["الجمعة","الخميس","الأربعاء","الثلاثاء","الاثنين","الأحد", "السبت"] as const;
 export type DayType = (typeof DAYS)[number];
 
 export interface IWorkHour {

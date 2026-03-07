@@ -35,6 +35,14 @@ SettingsRouter.put(
     SS.updateWorkHours
 );
 
+SettingsRouter.delete(
+   "/work-hours/:day",
+   authentication(TokenType.access),
+   authorization(Role.ADMIN),
+   validation(SV.deleteWorkHourSchema),
+   SS.deleteWorkHour
+);
+
 SettingsRouter.patch(
     "/logo",
     authentication(TokenType.access),
