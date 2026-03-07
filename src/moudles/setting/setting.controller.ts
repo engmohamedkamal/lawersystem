@@ -36,7 +36,7 @@ SettingsRouter.put(
 );
 
 SettingsRouter.delete(
-   "/work-hours/:day",
+   "/work-hours",
    authentication(TokenType.access),
    authorization(Role.ADMIN),
    validation(SV.deleteWorkHourSchema),
