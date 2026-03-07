@@ -52,30 +52,30 @@ class SettingsService {
           return res.status(200).json({ message: "Work hours updated successfully", settings })
     }
 
-    deleteWorkHour = async (req: Request, res: Response, next: NextFunction) =>{
+    deleteWorkHour = async (req: Request, res: Response, next: NextFunction) => {
+         const { days } = req.body as { days: string[] } 
 
-      const settings = await SettingsModel.findOne()
-      const { day } = req.params as { day: string }
-      if (!settings) throw new AppError("Settings not configured yet", 404)
+         const settings = await SettingsModel.findOne()
+         if (!settings) throw new AppError("Settings not configured yet", 404)
 
-      const exists = settings.workHours.some((w: { days: string[] }) => w.days.includes(day))
-      if (!exists) throw new AppError(`day "${day}" not found in work hours`, 404)
+         const existingDays = settings.workHours.flatMap((w: { days: string[] }) => w.days)
+         const notFound     = days.filter(d => !existingDays.includes(d))
+         if (notFound.length > 0) throw new AppError(`days not found: ${notFound.join(", ")}`, 404)
 
-      
-      const updatedWorkHours = (settings.workHours as Array<{ days: string[]; from: string; to: string }>)
-        .map(w => ({
-          from: w.from,
-          to:   w.to,
-          days: w.days.filter(d => d !== day),
-        }))
-        .filter(w => w.days.length > 0)
+         const updatedWorkHours = (settings.workHours as Array<{ days: string[]; from: string; to: string }>)
+           .map(w => ({
+             from: w.from,
+             to:   w.to,
+             days: w.days.filter(d => !days.includes(d)),
+           }))
+           .filter(w => w.days.length > 0)
 
          const updated = await SettingsModel.findOneAndUpdate(
-        {},
-        { $set: { workHours: updatedWorkHours } },
-        { new: true }
-    )
-        return res.status(200).json({ message: `Day "${day}" removed successfully`, settings: updated })
+           {},
+           { $set: { workHours: updatedWorkHours } },
+           { new: true }
+         )
+         return res.status(200).json({ message: "Days removed successfully", settings: updated })
     }
 
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {
