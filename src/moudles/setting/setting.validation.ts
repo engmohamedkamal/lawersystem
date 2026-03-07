@@ -24,8 +24,8 @@ const workHourSchema = z.object({
 })
 
 export const deleteWorkHourSchema = {
-  params: z.object({
-    day: z.enum([...DAYS] as [string, ...string[]]),
+  body: z.object({
+    days: z.array(z.enum([...DAYS] as [string, ...string[]])).min(1, "at least one day required"),
   }),
 }
 
