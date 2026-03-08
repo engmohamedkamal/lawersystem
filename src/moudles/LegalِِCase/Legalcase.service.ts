@@ -1,10 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import LegalCaseModel, { calcPaymentStatus } from "../../DB/model/LegalCase.model";
-import { CreateCaseType, UpdateCaseType } from "./Legalcase.validation";
+import { CreateCaseType, UpdateCaseStatusType, UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./Legalcase.validation";
 import { AppError } from "../../utils/classError";
 import ClientModel from "../../DB/model/client.model";
 import SessionModel from "../../DB/model/session.model";
 import { Role } from "../../DB/model/user.model";
+import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import { analyzeCase } from "../../utils/groqanalyzer";
+import cloudinary from "../../utils/cloudInary";
 
 class LegalCaseService {
     constructor() {}
@@ -140,12 +143,198 @@ class LegalCaseService {
         const updated = await LegalCaseModel.findByIdAndUpdate(
             id,
             { $set: data },
-            { new: true }
+            { returnDocument: "after" }
         ).populate("caseType", "name").populate("assignedTo", "UserName email")
 
         return res.status(200).json({ message: "Case updated successfully", case: updated })
     }
 
+    updateCaseStatus = async (req: Request, res: Response, next: NextFunction) => {
+        const { id }                           = req.params
+        const { status }: UpdateCaseStatusType = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        const isClosed   = status === "منتهية" || status === "مؤرشفة"
+        const isReopened = status === "قيد التحضير" || status === "قيد التنفيذ" || status === "موقوفة"
+
+        let updated
+        if (isClosed) {
+            updated = await LegalCaseModel.findByIdAndUpdate(
+                id,
+                { $set: { status, closedAt: legalCase.closedAt || new Date() } },
+                { returnDocument: "after" }
+            )
+        } else if (isReopened) {
+            updated = await LegalCaseModel.findByIdAndUpdate(
+                id,
+                { $set: { status }, $unset: { closedAt: 1 } },
+                { returnDocument: "after" }
+            )
+        } else {
+            updated = await LegalCaseModel.findByIdAndUpdate(
+                id,
+                { $set: { status } },
+                { returnDocument: "after" }
+            )
+        }
+
+        return res.status(200).json({ message: "Status updated successfully", case: updated })
+    }
+
+    updateFees = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+        const data: UpdateFeesType = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        const totalAmount = data.totalAmount ?? legalCase.fees?.totalAmount ?? 0
+        const paidAmount  = data.paidAmount  ?? legalCase.fees?.paidAmount  ?? 0
+
+        const paymentStatus = data.paymentStatus ?? calcPaymentStatus(totalAmount, paidAmount)
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            { $set: { fees: { ...legalCase.fees?.toObject?.() ?? {}, ...data, paymentStatus } } },
+            { returnDocument: "after" }
+        )
+
+        return res.status(200).json({ message: "Fees updated successfully", case: updated })
+    }
+
+    addTeamMember = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+        const { userId }: UpdateTeamType = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        if (legalCase.team.map((t: { toString(): string }) => t.toString()).includes(userId)) {
+            throw new AppError("user already in team", 409)
+        }
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            { $push: { team: userId } },
+            { new: true }
+        ).populate("team", "UserName email")
+
+        return res.status(200).json({ message: "Team member added successfully", case: updated })
+    }
+
+    removeTeamMember = async (req: Request, res: Response, next: NextFunction) => {
+        const { id }  = req.params
+        const { userId }: UpdateTeamType = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+       if (!legalCase.team.map((t: any) => t.toString()).includes(userId)) {
+           throw new AppError("user not in team", 404)
+       }
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            { $pull: { team: userId } },
+            { new: true }
+        ).populate("team", "UserName email")
+
+        return res.status(200).json({ message: "Team member removed successfully", case: updated })
+    }
+
+    uploadAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+        if (!req.file) throw new AppError("No file uploaded", 400)
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        const { secure_url, public_id } = await uploadBuffer(req.file.buffer, `cases/${id}/attachments`)
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            {
+                $push: {
+                    attachments: {
+                        url:        secure_url,
+                        publicId:   public_id,
+                        name:       req.file.originalname,
+                        uploadedAt: new Date(),
+                    },
+                },
+            },
+            { new: true }
+        )
+
+        return res.status(200).json({ message: "Attachment uploaded successfully", case: updated })
+    }
+
+    deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const { id }  = req.params
+        const { publicId } = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        const attachment = legalCase.attachments.find((a: { publicId: string }) => a.publicId === decodeURIComponent(publicId))
+        if (!attachment) throw new AppError("attachment not found", 404)
+
+        await cloudinary.uploader.destroy(attachment.publicId)
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            { $pull: { attachments: { publicId: attachment.publicId } } },
+            { new: true }
+        )
+
+        return res.status(200).json({ message: "Attachment deleted successfully", case: updated })
+    }
+
+    analyzeCaseByAi = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+            .populate("caseType",   "name")
+            .populate("client",     "fullName phone email address type")
+            .populate("assignedTo", "UserName")
+            .populate("team",       "UserName")
+
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        const caseTypeObj  = legalCase.caseType  as any
+        const clientObj    = legalCase.client     as any
+        const assignedObj  = legalCase.assignedTo as any
+        const teamArr      = legalCase.team       as any[]
+
+        const result = await analyzeCase({
+            caseNumber:   legalCase.caseNumber,
+            caseType:     caseTypeObj?.name    ?? "غير محدد",
+            status:       legalCase.status,
+            priority:     legalCase.priority,
+            description:  legalCase.description,
+            court:        legalCase.court,
+            city:         legalCase.city,
+            openedAt:     legalCase.openedAt,
+            closedAt:     legalCase.closedAt,
+            client: {
+                fullName: clientObj?.fullName ?? "غير محدد",
+                phone:    clientObj?.phone    ?? "غير محدد",
+                email:    clientObj?.email,
+                address:  clientObj?.address,
+                type:     clientObj?.type     ?? "غير محدد",
+            },
+            assignedTo: assignedObj?.UserName,
+            team:       teamArr?.map((t: any) => t.UserName).filter(Boolean),
+            attachments: legalCase.attachments.map((a: { url: string; name: string }) => ({
+                url:  a.url,
+                name: a.name,
+            })),
+        })
+
+        return res.status(200).json({ message: "success", analysis: result })
+    }
 
 }
 

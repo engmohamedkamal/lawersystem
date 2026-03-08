@@ -6,6 +6,7 @@ import { authorization } from "../../middleware/authorization";
 import { validation } from "../../middleware/validation";
 import CS from "./Legalcase.service";
 import * as CV from "./Legalcase.validation";
+import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 
 
@@ -42,6 +43,63 @@ LegalCaseRouter.put(
     validation(CV.updateCaseSchema),
     CS.updateCase
 )
+
+LegalCaseRouter.patch(
+    "/:id/status",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(CV.updateCaseStatusSchema),
+    CS.updateCaseStatus
+);
+
+LegalCaseRouter.patch(
+    "/:id/fees",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(CV.updateFeesSchema),
+    CS.updateFees
+);
+
+LegalCaseRouter.post(
+    "/:id/team",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(CV.updateTeamSchema),
+    CS.addTeamMember
+);
+
+
+LegalCaseRouter.delete(
+    "/:id/team",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(CV.updateTeamSchema),
+    CS.removeTeamMember
+);
+
+LegalCaseRouter.post(
+    "/:id/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    MulterHost({ customExtension: [...allowedExtensions.image, "application/pdf"], fileSizeMB: 10 }).single("file"),
+    CS.uploadAttachment
+);
+
+LegalCaseRouter.delete(
+    "/:id/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(CV.caseParamsSchema),
+    CS.deleteAttachment
+);
+
+LegalCaseRouter.post(
+    "/:id/analyze",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+    validation(CV.caseParamsSchema),
+    CS.analyzeCaseByAi
+);
 
 
 

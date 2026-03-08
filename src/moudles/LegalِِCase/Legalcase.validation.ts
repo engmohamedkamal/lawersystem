@@ -67,6 +67,29 @@ export const updateCaseSchema = {
     }),
 }
 
+export const updateCaseStatusSchema = {
+    params: z.object({ id: z.string().min(1) }),
+    body: z.object({
+        status: z.enum([...CASE_STATUSES] as [string, ...string[]], {
+            error: `status must be one of: ${CASE_STATUSES.join(", ")}`,
+        }),
+    }),
+}
 
-export type UpdateCaseType       = z.infer<typeof updateCaseSchema.body>
+export const updateFeesSchema = {
+    params: z.object({ id: z.string().min(1) }),
+    body: feesSchema,
+}
+
+export const updateTeamSchema = {
+    params: z.object({ id: z.string().min(1) }),
+    body: z.object({
+        userId: z.string().min(1),
+    }),
+}
+
+export type UpdateFeesType = z.infer<typeof updateFeesSchema.body>
+export type UpdateCaseStatusType = z.infer<typeof updateCaseStatusSchema.body>
+export type UpdateCaseType = z.infer<typeof updateCaseSchema.body>
 export type CreateCaseType = z.infer<typeof createCaseSchema.body>
+export type UpdateTeamType = z.infer<typeof updateTeamSchema.body>
