@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import LegalCaseModel, { calcPaymentStatus } from "../../DB/model/LegalCase.model";
-import { CreateCaseType } from "./Legalcase.validation";
+import { CreateCaseType, UpdateCaseType } from "./Legalcase.validation";
 import { AppError } from "../../utils/classError";
 import ClientModel from "../../DB/model/client.model";
 import SessionModel from "../../DB/model/session.model";
+import { Role } from "../../DB/model/user.model";
 
 class LegalCaseService {
     constructor() {}
@@ -45,38 +46,104 @@ class LegalCaseService {
     }
 
     getCases = async (req: Request, res: Response, next: NextFunction) => {
-            const { status, caseType, assignedTo, priority, page = "1", limit = "10" } = req.query
+        const { status, caseType, assignedTo, priority, page = "1", limit = "10" } = req.query
+        const userId = req.user?.id
+        const role   = req.user?.role
 
-            const filter: Record<string, any> = { isDeleted: false }
-            if (status)     filter.status     = status
-            if (caseType)   filter.caseType   = caseType
+        const filter: Record<string, any> = { isDeleted: false }
+        if (status)     filter.status   = status
+        if (caseType)   filter.caseType = caseType
+        if (priority)   filter.priority = priority
+
+        if (role === Role.LAWYER) {
+            filter.$or = [
+                { assignedTo: userId },
+                { team: userId },
+            ]
+        } else {
             if (assignedTo) filter.assignedTo = assignedTo
-            if (priority)   filter.priority   = priority
+        }
 
-            const pageNum  = Math.max(Number(page), 1)
-            const limitNum = Math.min(Math.max(Number(limit), 1), 100)
-            const skip     = (pageNum - 1) * limitNum
+        const pageNum  = Math.max(Number(page), 1)
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100)
+        const skip     = (pageNum - 1) * limitNum
 
-            const [cases, total] = await Promise.all([
-                LegalCaseModel.find(filter)
-                    .populate("client",     "fullName phone type")
-                    .populate("caseType",   "name")
-                    .populate("assignedTo", "UserName email")
-                    .populate("team",       "UserName email")
-                    .populate("createdBy",  "UserName email")
-                    .sort({ createdAt: -1 })
-                    .skip(skip)
-                    .limit(limitNum),
-                LegalCaseModel.countDocuments(filter),
-            ])
+        const lawyerSelect = "-fees -createdBy"
 
-            return res.status(200).json({
-                message:    "success",
-                total,
-                page:       pageNum,
-                totalPages: Math.ceil(total / limitNum),
-                cases,
-            })
+        const query = LegalCaseModel.find(filter)
+            .populate("client",     "fullName phone type")
+            .populate("caseType",   "name")
+            .populate("assignedTo", "UserName email")
+            .populate("team",       "UserName email")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+
+        if (role === Role.LAWYER) query.select(lawyerSelect)
+
+        const [cases, total] = await Promise.all([
+            query,
+            LegalCaseModel.countDocuments(filter),
+        ])
+
+        return res.status(200).json({
+            message:    "success",
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            cases,
+        })
+    }
+
+    getCaseById = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+        const role   = req.user?.role
+        const userId = req.user?.id
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+            .populate("client",     "fullName phone type email address")
+            .populate("caseType",   "name")
+            .populate("assignedTo", "UserName email")
+            .populate("team",       "UserName email")
+            .populate("createdBy",  "UserName email")
+
+        if (!legalCase) throw new AppError("case not found", 404)
+
+        if (role === Role.LAWYER) {
+            const inTeam = legalCase.team.some((t: any) => t._id.toString() === userId)
+            const isAssigned = (legalCase.assignedTo as any)?._id?.toString() === userId
+
+            if (!inTeam && !isAssigned) {
+                throw new AppError("access denied", 403)
+            }
+
+            const { fees, createdBy, ...caseData } = legalCase.toObject()
+            return res.status(200).json({ message: "success", case: caseData })
+        }
+
+        return res.status(200).json({ message: "success", case: legalCase })
+    }
+
+    updateCase = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+        const data: UpdateCaseType = req.body
+
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        if (!legalCase) throw new AppError("case not found", 404)
+        if (legalCase.status === "مؤرشفة") throw new AppError("cannot update an archived case", 400)
+
+        if (data.caseNumber && data.caseNumber !== legalCase.caseNumber) {
+            const existing = await LegalCaseModel.findOne({ caseNumber: data.caseNumber })
+            if (existing) throw new AppError("case number already exists", 409)
+        }
+
+        const updated = await LegalCaseModel.findByIdAndUpdate(
+            id,
+            { $set: data },
+            { new: true }
+        ).populate("caseType", "name").populate("assignedTo", "UserName email")
+
+        return res.status(200).json({ message: "Case updated successfully", case: updated })
     }
 
 

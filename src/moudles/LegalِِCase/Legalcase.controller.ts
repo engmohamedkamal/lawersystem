@@ -20,6 +20,29 @@ LegalCaseRouter.post(
     CS.createCase
 );
 
+LegalCaseRouter.get(
+    "/",
+    authentication(TokenType.access),
+    authorization(),
+    CS.getCases
+);
+
+LegalCaseRouter.get(
+    "/:id",
+    authentication(TokenType.access),
+    authorization(),
+    validation(CV.caseParamsSchema),
+    CS.getCaseById
+);
+
+LegalCaseRouter.put(
+    "/:id",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(CV.updateCaseSchema),
+    CS.updateCase
+)
+
 
 
 

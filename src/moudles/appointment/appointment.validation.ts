@@ -8,7 +8,7 @@ export const createAppointmentSchema = {
   body: z
     .object({
       fullName: z.string().trim().min(2).max(50),
-      phone: z.string().trim().min(6),
+      phone: z.string().trim().length(11),
       email: z.string().trim().toLowerCase().email("invalid email format").optional(),
       slot: z.string().min(1, "slot is required"),
       caseType: z.string().min(1, "caseType is required"),

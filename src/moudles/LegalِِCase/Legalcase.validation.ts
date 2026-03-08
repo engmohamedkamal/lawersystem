@@ -46,5 +46,27 @@ export const createCaseSchema = {
     }),
 }
 
+export const caseParamsSchema = {
+    params: z.object({ id: z.string().min(1) }),
+}
 
+
+export const updateCaseSchema = {
+    params: z.object({ id: z.string().min(1) }),
+    body: z.object({
+        caseNumber:  z.string().trim().min(1).optional(),
+        caseType:    z.string().optional(),
+        client:      z.string().optional(),               // ✅ ObjectId
+        priority:    z.enum([...CASE_PRIORITIES] as [string, ...string[]]).optional(),
+        openedAt:    z.coerce.date().optional(),
+        closedAt:    z.coerce.date().optional(),
+        court:       z.string().trim().max(200).optional(),
+        city:        z.string().trim().max(100).optional(),
+        description: z.string().trim().max(4000).optional(),
+        assignedTo:  z.string().optional(),
+    }),
+}
+
+
+export type UpdateCaseType       = z.infer<typeof updateCaseSchema.body>
 export type CreateCaseType = z.infer<typeof createCaseSchema.body>
