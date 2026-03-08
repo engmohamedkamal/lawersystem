@@ -14,8 +14,6 @@ import { allowedExtensions, MulterHost } from "../../middleware/multer";
 const SettingsRouter = Router()
 
 SettingsRouter.get("/",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN),
     SS.getSettings
 );
 
