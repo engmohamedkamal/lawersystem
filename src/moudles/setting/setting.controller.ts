@@ -56,14 +56,5 @@ SettingsRouter.delete(
     SS.deleteLogo
 );
 
-SettingsRouter.put(
-    "/map",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN),
-    validation(SV.updateMapSchema),
-    SS.UpdateMap
-);
-
-
 
 export default SettingsRouter

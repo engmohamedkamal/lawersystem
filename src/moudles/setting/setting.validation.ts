@@ -10,6 +10,9 @@ export const upsertSettingsSchema = {
     addressDetail: z.string().trim().max(300).optional(),
     governorate: z.string().trim().optional(),
     country: z.string().trim().optional(),
+    mapEmbedUrl: z.string()
+      .trim().url("invalid URL").refine((val) => val.startsWith("https://www.google.com/maps/embed"),{ message: "must be a valid Google Maps embed URL" }),
+    
   }),
 }
 
@@ -35,13 +38,5 @@ export const updateWorkHoursSchema = {
   }),
 }
 
-export const updateMapSchema = {
-  body: z.object({
-    mapEmbedUrl: z.string()
-      .trim().url("invalid URL").refine((val) => val.startsWith("https://www.google.com/maps/embed"),{ message: "must be a valid Google Maps embed URL" }),
-  }),
-}
-
 export type UpsertSettingsType = z.infer<typeof upsertSettingsSchema.body>
 export type UpdateWorkHoursType = z.infer<typeof updateWorkHoursSchema.body>
-export type UpdateMapType = z.infer<typeof updateMapSchema.body>

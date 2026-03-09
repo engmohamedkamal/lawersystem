@@ -292,6 +292,23 @@ class LegalCaseService {
         return res.status(200).json({ message: "Attachment deleted successfully", case: updated })
     }
 
+    deleteCase = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+
+        const LegalCase = await LegalCaseModel.findOne({ _id : id , isDeleted : false})
+
+        if(!LegalCase) throw new AppError("case not found", 404)
+
+        await LegalCaseModel.findByIdAndUpdate(id , {
+            isDeleted : true,
+            DeletedAt : Date.now(),
+            DeletedBy : req.user?.id
+        })
+
+        return res.status(200).json({ message: "Case deleted successfully" })
+
+    }
+
     analyzeCaseByAi = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
 

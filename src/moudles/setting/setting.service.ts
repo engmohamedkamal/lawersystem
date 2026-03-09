@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import SettingsModel from "../../DB/model/settings.model";
 import { AppError } from "../../utils/classError";
-import { UpdateMapType, UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
+import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 
@@ -99,7 +99,6 @@ class SettingsService {
 
     }
 
-
     deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
         
          const settings = await SettingsModel.findOne()
@@ -116,19 +115,6 @@ class SettingsService {
 
          return res.status(200).json({ message: "Logo deleted successfully" })
     }
-
-
-    UpdateMap = async (req: Request, res: Response, next: NextFunction) => {
-
-      const { mapEmbedUrl } : UpdateMapType = req.body
-      const settings = await SettingsModel.findOneAndUpdate(
-        {},
-        { $set: { mapEmbedUrl } },
-        { new: true, upsert: true }
-      )
-      return res.status(200).json({ message: "Map updated successfully", settings })
-    }
-
 
   }
 

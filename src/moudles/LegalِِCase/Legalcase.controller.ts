@@ -93,6 +93,14 @@ LegalCaseRouter.delete(
     CS.deleteAttachment
 );
 
+LegalCaseRouter.delete(
+    "/:id",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(CV.caseParamsSchema),
+    CS.deleteCase
+);
+
 LegalCaseRouter.post(
     "/:id/analyze",
     authentication(TokenType.access),
