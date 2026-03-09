@@ -17,6 +17,7 @@ import SettingsRouter from "./moudles/setting/setting.controller"
 import { startCronJobs } from "./jobs/scheduler"
 import clientRouter from "./moudles/client/client.controller"
 import LegalCaseRouter from "./moudles/LegalِِCase/Legalcase.controller"
+import invoiceRouter from "./moudles/invoice/invoice.controller"
 
 
 
@@ -51,6 +52,8 @@ const bootStrap = ()=>{
     app.use("/SettingsService", SettingsRouter);
     app.use("/Client", clientRouter);
     app.use("/LegalCase", LegalCaseRouter);
+    app.use("/invoice", invoiceRouter);
+    
     
     connectionDB()
 

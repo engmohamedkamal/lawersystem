@@ -46,4 +46,13 @@ CaseTypeRouter.patch(
     CS.disableCaseType
 );
 
+
+CaseTypeRouter.delete(
+    "/:id/delete",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(CV.caseTypeParamsSchema),
+    CS.deleteCaseType
+);
+
 export default CaseTypeRouter

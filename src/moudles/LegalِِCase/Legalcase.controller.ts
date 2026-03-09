@@ -7,11 +7,12 @@ import { validation } from "../../middleware/validation";
 import CS from "./Legalcase.service";
 import * as CV from "./Legalcase.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
+import invoiceRouter from "../invoice/invoice.controller";
 
 
+const LegalCaseRouter = Router({ mergeParams: true });
 
-const LegalCaseRouter = Router()
-
+LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 
 LegalCaseRouter.post(
     "/",
@@ -108,6 +109,9 @@ LegalCaseRouter.post(
     validation(CV.caseParamsSchema),
     CS.analyzeCaseByAi
 );
+
+
+LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 
 
 

@@ -59,6 +59,16 @@ class usersService {
         return res.status(200).json({ message: "Case type disabled successfully", caseType })
     }
 
+    deleteCaseType = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params;
+    
+        const caseType = await CaseTypeModel.findById(id);
+        if (!caseType) throw new AppError("caseType not found", 404);
+    
+        await caseType.deleteOne();
+        return res.status(200).json({ message: "caseType deleted successfully" });
+      };
+
 
 
 

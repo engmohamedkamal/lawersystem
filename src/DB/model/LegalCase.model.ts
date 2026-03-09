@@ -18,6 +18,15 @@ export interface IFees {
   notes?:         string;
 }
 
+// ─── دفعة إضافية (مش من الأتعاب) ─────────────────────────────────────────
+export interface IExtraPayment {
+  amount:        number;
+  description:   string;
+  paymentMethod?: PaymentMethod;
+  paidAt:        Date;
+  invoiceId?:    Types.ObjectId;
+}
+
 export interface IAttachment {
   url:        string;
   publicId:   string;
@@ -26,25 +35,26 @@ export interface IAttachment {
 }
 
 export interface ILegalCase extends mongoose.Document {
-  _id:          Types.ObjectId;
-  caseNumber:   string;
-  caseType:     Types.ObjectId;
-  status:       CaseStatus;
-  priority:     CasePriority;
-  openedAt:     Date;
-  closedAt?:    Date;
-  court?:       string;
-  city?:        string;
-  description?: string;
-  client:       Types.ObjectId;   
-  assignedTo?:  Types.ObjectId;
-  team:         Types.ObjectId[];
-  fees:         IFees;
-  attachments:  IAttachment[];
-  createdBy:    Types.ObjectId;
-  isDeleted:    boolean;
-  deletedAt?:   Date;
-  deletedBy?:   Types.ObjectId;
+  _id:           Types.ObjectId;
+  caseNumber:    string;
+  caseType:      Types.ObjectId;
+  status:        CaseStatus;
+  priority:      CasePriority;
+  openedAt:      Date;
+  closedAt?:     Date;
+  court?:        string;
+  city?:         string;
+  description?:  string;
+  client:        Types.ObjectId;
+  assignedTo?:   Types.ObjectId;
+  team:          Types.ObjectId[];
+  fees:          IFees;
+  extraPayments: IExtraPayment[];
+  attachments:   IAttachment[];
+  createdBy:     Types.ObjectId;
+  isDeleted:     boolean;
+  deletedAt?:    Date;
+  deletedBy?:    Types.ObjectId;
 }
 
 const FeesSchema = new mongoose.Schema<IFees>(
@@ -56,6 +66,18 @@ const FeesSchema = new mongoose.Schema<IFees>(
     notes:         { type: String, trim: true, maxLength: 500 },
   },
   { _id: false }
+);
+
+// ─── Schema الدفعات الإضافية ───────────────────────────────────────────────
+const ExtraPaymentSchema = new mongoose.Schema<IExtraPayment>(
+  {
+    amount:        { type: Number, required: true, min: 0 },
+    description:   { type: String, required: true, trim: true },
+    paymentMethod: { type: String, enum: PAYMENT_METHODS },
+    paidAt:        { type: Date, default: Date.now },
+    invoiceId:     { type: Types.ObjectId, ref: "Invoice" },
+  },
+  { _id: true }
 );
 
 const AttachmentSchema = new mongoose.Schema<IAttachment>(
@@ -70,24 +92,25 @@ const AttachmentSchema = new mongoose.Schema<IAttachment>(
 
 const LegalCaseSchema = new mongoose.Schema<ILegalCase>(
   {
-    caseNumber:  { type: String, required: true, trim: true, unique: true },
-    caseType:    { type: Types.ObjectId, ref: "CaseType",  required: true },
-    client:      { type: Types.ObjectId, ref: "Client",    required: true }, 
-    status:      { type: String, enum: CASE_STATUSES,   default: "قيد التحضير", required: true },
-    priority:    { type: String, enum: CASE_PRIORITIES, default: "متوسطة",      required: true },
-    openedAt:    { type: Date, required: true },
-    closedAt:    { type: Date },
-    court:       { type: String, trim: true, maxLength: 200 },
-    city:        { type: String, trim: true, maxLength: 100 },
-    description: { type: String, trim: true, maxLength: 4000 },
-    assignedTo:  { type: Types.ObjectId, ref: "User" },
-    team:        [{ type: Types.ObjectId, ref: "User" }],
-    fees:        { type: FeesSchema, default: () => ({}) },
-    attachments: { type: [AttachmentSchema], default: [] },
-    createdBy:   { type: Types.ObjectId, ref: "User", required: true },
-    isDeleted:   { type: Boolean, default: false },
-    deletedAt:   { type: Date },
-    deletedBy:   { type: Types.ObjectId, ref: "User" },
+    caseNumber:    { type: String, required: true, trim: true, unique: true },
+    caseType:      { type: Types.ObjectId, ref: "CaseType",  required: true },
+    client:        { type: Types.ObjectId, ref: "Client",    required: true },
+    status:        { type: String, enum: CASE_STATUSES,   default: "قيد التحضير", required: true },
+    priority:      { type: String, enum: CASE_PRIORITIES, default: "متوسطة",      required: true },
+    openedAt:      { type: Date, required: true },
+    closedAt:      { type: Date },
+    court:         { type: String, trim: true, maxLength: 200 },
+    city:          { type: String, trim: true, maxLength: 100 },
+    description:   { type: String, trim: true, maxLength: 4000 },
+    assignedTo:    { type: Types.ObjectId, ref: "User" },
+    team:          [{ type: Types.ObjectId, ref: "User" }],
+    fees:          { type: FeesSchema, default: () => ({}) },
+    extraPayments: { type: [ExtraPaymentSchema], default: [] },
+    attachments:   { type: [AttachmentSchema], default: [] },
+    createdBy:     { type: Types.ObjectId, ref: "User", required: true },
+    isDeleted:     { type: Boolean, default: false },
+    deletedAt:     { type: Date },
+    deletedBy:     { type: Types.ObjectId, ref: "User" },
   },
   {
     timestamps: true,
@@ -98,6 +121,12 @@ const LegalCaseSchema = new mongoose.Schema<ILegalCase>(
 
 LegalCaseSchema.virtual("fees.remainingAmount").get(function () {
   return Math.max((this.fees?.totalAmount ?? 0) - (this.fees?.paidAmount ?? 0), 0);
+});
+
+LegalCaseSchema.virtual("totalPaidAll").get(function () {
+  const feesPaid  = this.fees?.paidAmount ?? 0;
+  const extraPaid = (this.extraPayments ?? []).reduce((sum: number, p: IExtraPayment) => sum + (p.amount ?? 0), 0);
+  return feesPaid + extraPaid;
 });
 
 export const calcPaymentStatus = (totalAmount: number, paidAmount: number): PaymentStatus => {
