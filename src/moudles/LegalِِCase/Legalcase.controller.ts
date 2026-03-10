@@ -102,14 +102,6 @@ LegalCaseRouter.delete(
     CS.deleteCase
 );
 
-LegalCaseRouter.post(
-    "/:id/analyze",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
-    validation(CV.caseParamsSchema),
-    CS.analyzeCaseByAi
-);
-
 
 LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 

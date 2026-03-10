@@ -6,7 +6,6 @@ import ClientModel from "../../DB/model/client.model";
 import SessionModel from "../../DB/model/session.model";
 import { Role } from "../../DB/model/user.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
-import { analyzeCase } from "../../utils/groqanalyzer";
 import cloudinary from "../../utils/cloudInary";
 
 class LegalCaseService {
@@ -309,49 +308,7 @@ class LegalCaseService {
 
     }
 
-    analyzeCaseByAi = async (req: Request, res: Response, next: NextFunction) => {
-        const { id } = req.params
-
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
-            .populate("caseType",   "name")
-            .populate("client",     "fullName phone email address type")
-            .populate("assignedTo", "UserName")
-            .populate("team",       "UserName")
-
-        if (!legalCase) throw new AppError("case not found", 404)
-
-        const caseTypeObj  = legalCase.caseType  as any
-        const clientObj    = legalCase.client     as any
-        const assignedObj  = legalCase.assignedTo as any
-        const teamArr      = legalCase.team       as any[]
-
-        const result = await analyzeCase({
-            caseNumber:   legalCase.caseNumber,
-            caseType:     caseTypeObj?.name    ?? "غير محدد",
-            status:       legalCase.status,
-            priority:     legalCase.priority,
-            description:  legalCase.description,
-            court:        legalCase.court,
-            city:         legalCase.city,
-            openedAt:     legalCase.openedAt,
-            closedAt:     legalCase.closedAt,
-            client: {
-                fullName: clientObj?.fullName ?? "غير محدد",
-                phone:    clientObj?.phone    ?? "غير محدد",
-                email:    clientObj?.email,
-                address:  clientObj?.address,
-                type:     clientObj?.type     ?? "غير محدد",
-            },
-            assignedTo: assignedObj?.UserName,
-            team:       teamArr?.map((t: any) => t.UserName).filter(Boolean),
-            attachments: legalCase.attachments.map((a: { url: string; name: string }) => ({
-                url:  a.url,
-                name: a.name,
-            })),
-        })
-
-        return res.status(200).json({ message: "success", analysis: result })
-    }
+   
 
 }
 
