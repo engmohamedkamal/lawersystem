@@ -20,7 +20,7 @@ LegalCaseRouter.post(
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
     validation(CV.createCaseSchema),
-    CS.createCase
+     CS.createCase
 );
 
 LegalCaseRouter.get(
