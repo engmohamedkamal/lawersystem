@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import LegalCaseModel, { calcPaymentStatus } from "../../DB/model/LegalCase.model";
-import { CreateCaseType, UpdateCaseStatusType, UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./Legalcase.validation";
+import { CreateCaseType, UpdateCaseStatusType, UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./LegalCase.validation";
 import { AppError } from "../../utils/classError";
 import ClientModel from "../../DB/model/client.model";
 import SessionModel from "../../DB/model/session.model";

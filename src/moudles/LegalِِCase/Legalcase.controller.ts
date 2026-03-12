@@ -4,14 +4,15 @@ import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
 import { authorization } from "../../middleware/authorization";
 import { validation } from "../../middleware/validation";
-import CS from "./Legalcase.service";
-import * as CV from "./Legalcase.validation";
+import * as CV from "./LegalCase.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
 import invoiceRouter from "../invoice/invoice.controller";
+import CS from "./Legalcase.service";
+
+
 
 
 const LegalCaseRouter = Router({ mergeParams: true });
-
 LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 
 LegalCaseRouter.post(

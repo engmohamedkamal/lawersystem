@@ -41,7 +41,7 @@ const InvoiceItemSchema = new mongoose.Schema<IInvoiceItem>(
 const InvoiceSchema = new mongoose.Schema<IInvoice>(
     {
         invoiceNumber: { type: String, required: true, unique: true, trim: true },
-        legalCase:     { type: Types.ObjectId, ref: "LegalCase", required: true },
+        legalCase:     { type: Types.ObjectId, ref: "LegalCase", required: false },
         client:        { type: Types.ObjectId, ref: "Client",    required: true },
         items:         { type: [InvoiceItemSchema], default: [] },
         subtotal:      { type: Number, default: 0 },

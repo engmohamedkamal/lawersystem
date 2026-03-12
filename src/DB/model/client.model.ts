@@ -11,7 +11,6 @@ export interface IDocument {
   uploadedAt: Date;
 }
 
-// ─── دفعة إضافية في بروفايل العميل ───────────────────────────────────────
 export interface IClientExtraPayment {
   amount:         number;
   description:    string;

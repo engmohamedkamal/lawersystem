@@ -6,6 +6,7 @@ import { CreateClientType, UpdateClientType } from "./client.validation";
 import * as ExcelJS from "exceljs"
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
+import InvoiceModel from "../../DB/model/invoice.model";
 
 class ClientService {
     constructor() {}
@@ -69,7 +70,7 @@ class ClientService {
 
     getClients = async (req: Request, res: Response, next: NextFunction) => {
         const { search, type, page = "1", limit = "10" } = req.query
-
+ 
         const filter: Record<string, any> = { isDeleted: false }
         if (type) filter.type = type
         if (search) {
@@ -78,11 +79,11 @@ class ClientService {
                 { phone:    { $regex: search, $options: "i" } },
             ]
         }
-
+ 
         const pageNum  = Math.max(Number(page), 1)
         const limitNum = Math.min(Math.max(Number(limit), 1), 100)
         const skip     = (pageNum - 1) * limitNum
-
+ 
         const [clients, total] = await Promise.all([
             ClientModel.find(filter)
                 .populate("createdBy", "UserName email")
@@ -91,19 +92,21 @@ class ClientService {
                 .limit(limitNum),
             ClientModel.countDocuments(filter),
         ])
-
-        const clientIds   = clients.map(c => c._id)
-        const caseCounts  = await LegalCaseModel.aggregate([
+ 
+        const clientIds  = clients.map(c => c._id)
+        const caseCounts = await LegalCaseModel.aggregate([
             { $match: { client: { $in: clientIds }, isDeleted: false } },
             { $group: { _id: "$client", count: { $sum: 1 } } },
         ])
-        const caseCountMap = Object.fromEntries(caseCounts.map(c => [c._id.toString(), c.count]))
-
+        const caseCountMap = Object.fromEntries(
+            caseCounts.map(c => [c._id.toString(), c.count])
+        )
+ 
         const result = clients.map(c => ({
             ...c.toJSON(),
             casesCount: caseCountMap[c._id.toString()] ?? 0,
         }))
-
+ 
         return res.status(200).json({
             message:    "success",
             total,
@@ -115,28 +118,58 @@ class ClientService {
 
     getClientById = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
-
+ 
         const client = await ClientModel.findOne({ _id: id, isDeleted: false })
             .populate("createdBy", "UserName email")
         if (!client) throw new AppError("client not found", 404)
-
+ 
         const cases = await LegalCaseModel.find({ client: id, isDeleted: false })
             .populate("caseType",   "name")
             .populate("assignedTo", "UserName email")
-            .select("caseNumber status caseType openedAt assignedTo fees")
-
+            .select("caseNumber status caseType openedAt assignedTo fees extraPayments")
+ 
         const totalFees = cases.reduce((sum, c) => sum + (c.fees?.totalAmount ?? 0), 0)
         const paidFees  = cases.reduce((sum, c) => sum + (c.fees?.paidAmount  ?? 0), 0)
-
+ 
+        const activeCasesCount = cases.filter(
+            c => !["منتهية", "مؤرشفة"].includes(c.status)
+        ).length
+ 
+        const invoices = await InvoiceModel.find({
+            client:    id,
+            isDeleted: false,
+            status:    { $ne: "ملغية" },
+        }).select("invoiceNumber total paidAmount remaining status isFromFees legalCase issueDate")
+ 
+        const totalInvoicesAmount = invoices.reduce((sum : number, inv) => sum + (inv.total ?? 0), 0)
+        const totalInvoicesPaid   = invoices.reduce((sum : number, inv) => sum + (inv.paidAmount ?? 0), 0)
+ 
+        const extraPaymentsTotal = client.extraPayments?.reduce(
+            (sum : number, p : { amount?: number }) => sum + (p.amount ?? 0), 0
+        ) ?? 0
+ 
+        const remainingFees = totalFees - paidFees
+ 
         return res.status(200).json({
             message: "success",
             client,
             cases,
+            invoices,
             summary: {
-                casesCount:    cases.length,
+                casesCount:          cases.length,
+                activeCasesCount,
+ 
                 totalFees,
                 paidFees,
-                remainingFees: totalFees - paidFees,
+                remainingFees,
+ 
+                invoicesCount:       invoices.length,
+                totalInvoicesAmount,
+                totalInvoicesPaid,
+ 
+                extraPaymentsTotal,
+ 
+                grandTotalPaid:      paidFees + extraPaymentsTotal,
             },
         })
     }
