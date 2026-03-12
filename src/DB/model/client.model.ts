@@ -4,11 +4,27 @@ import { PAYMENT_METHODS, PaymentMethod } from "./LegalCase.model";
 export const CLIENT_TYPES = ["فرد", "شركة"] as const;
 export type ClientType = (typeof CLIENT_TYPES)[number];
 
+export interface IExtraPaymentItem {
+  description: string;
+  amount:      number;
+}
+
+
 export interface IDocument {
   url:        string;
   publicId:   string;
   name:       string;
   uploadedAt: Date;
+}
+
+export interface IClientExtraPayment {
+  amount:         number;
+  description:    string;
+  items:          IExtraPaymentItem[];
+  paymentMethod?: PaymentMethod;
+  paidAt:         Date;
+  legalCaseId?:   Types.ObjectId;
+  invoiceId?:     Types.ObjectId;
 }
 
 export interface IClientExtraPayment {
@@ -47,6 +63,14 @@ const DocumentSchema = new mongoose.Schema<IDocument>(
   { _id: false }
 );
 
+const ExtraPaymentItemSchema = new mongoose.Schema<IExtraPaymentItem>(
+  {
+    description: { type: String, required: true, trim: true },
+    amount:      { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
 const ClientExtraPaymentSchema = new mongoose.Schema<IClientExtraPayment>(
   {
     amount:        { type: Number, required: true, min: 0 },
@@ -55,6 +79,7 @@ const ClientExtraPaymentSchema = new mongoose.Schema<IClientExtraPayment>(
     paidAt:        { type: Date, default: Date.now },
     legalCaseId:   { type: Types.ObjectId, ref: "LegalCase" },
     invoiceId:     { type: Types.ObjectId, ref: "Invoice" },
+    items: { type: [ExtraPaymentItemSchema], default: [] },
   },
   { _id: true }
 );

@@ -2,8 +2,8 @@ import z from "zod";
 import { INVOICE_STATUSES } from "../../DB/model/invoice.model";
 
 const invoiceItemSchema = z.object({
-    description: z.string().trim().min(1, "description required"),
-    amount:      z.number().min(0, "amount must be positive"),
+    description: z.string(),
+    amount:      z.number(),
 })
 
 export const createInvoiceSchema = {
@@ -43,7 +43,9 @@ export const createStandaloneInvoiceSchema = {
     }),
 }
 
-export const updateInvoiceSchema = {
+export const updateInvoiceSchema = z.object({params: z.object({
+        invoiceId: z.string(), 
+    }),
     body: z.object({
         items:         z.array(invoiceItemSchema).min(1).optional(),
         discount:      z.number().min(0).max(100).optional(),
@@ -54,9 +56,9 @@ export const updateInvoiceSchema = {
         paidAmount:    z.number().min(0).optional(),
         status:        z.enum([...INVOICE_STATUSES] as [string, ...string[]]).optional(),
     }),
-}
+})
 
 
 export type CreateStandaloneInvoiceType = z.infer<typeof createStandaloneInvoiceSchema.body>
 export type CreateInvoiceType = z.infer<typeof createInvoiceSchema.body>
-export type UpdateInvoiceType = z.infer<typeof updateInvoiceSchema.body>
+export type UpdateInvoiceType = z.infer<typeof updateInvoiceSchema.shape.body>

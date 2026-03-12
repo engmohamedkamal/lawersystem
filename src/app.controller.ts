@@ -44,14 +44,14 @@ const bootStrap = ()=>{
     app.use(limiter)
     app.use(cookieParser());
 
-    app.use("/auth",authRouter)
-    app.use("/users" , userRouter)
+    app.use("/auth",authRouter);
+    app.use("/users" , userRouter);
     app.use("/slots", slotsRouter);
     app.use("/appointment", appointmentRouter);
     app.use("/CaseType", CaseTypeRouter);
     app.use("/SettingsService", SettingsRouter);
     app.use("/Client", clientRouter);
-    app.use("/invoices", invoiceRouter)
+    app.use("/invoices", invoiceRouter);
     app.use("/LegalCase", LegalCaseRouter); 
     
     

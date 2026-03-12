@@ -18,14 +18,16 @@ export interface IFees {
   notes?:         string;
 }
 
-// ─── دفعة إضافية (مش من الأتعاب) ─────────────────────────────────────────
 export interface IExtraPayment {
-  amount:        number;
-  description:   string;
+  amount:         number;
+  description:    string;
+  items:          { description: string; amount: number }[]; 
   paymentMethod?: PaymentMethod;
-  paidAt:        Date;
-  invoiceId?:    Types.ObjectId;
+  paidAt:         Date;
+  invoiceId?:     Types.ObjectId;
 }
+
+
 
 export interface IAttachment {
   url:        string;
@@ -68,7 +70,6 @@ const FeesSchema = new mongoose.Schema<IFees>(
   { _id: false }
 );
 
-// ─── Schema الدفعات الإضافية ───────────────────────────────────────────────
 const ExtraPaymentSchema = new mongoose.Schema<IExtraPayment>(
   {
     amount:        { type: Number, required: true, min: 0 },
@@ -76,6 +77,7 @@ const ExtraPaymentSchema = new mongoose.Schema<IExtraPayment>(
     paymentMethod: { type: String, enum: PAYMENT_METHODS },
     paidAt:        { type: Date, default: Date.now },
     invoiceId:     { type: Types.ObjectId, ref: "Invoice" },
+    items: { type: [{ description: String, amount: Number }], default: [] },
   },
   { _id: true }
 );

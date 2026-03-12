@@ -6,7 +6,6 @@ import { authorization } from "../../middleware/authorization";
 import { validation } from "../../middleware/validation";
 import IS from "./invoice.service";
 import * as IV from "./invoice.validation";
-import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 
 
@@ -53,7 +52,6 @@ invoiceRouter.put(
     "/:invoiceId",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
-    validation(IV.caseInvoiceParamsSchema),
     IS.updateInvoice
 )
 
@@ -62,6 +60,13 @@ invoiceRouter.get(
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
     IS.printAllClientInvoices
+)
+
+invoiceRouter.delete(
+    "/:invoiceId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    IS.deleteInvoice
 )
 
 

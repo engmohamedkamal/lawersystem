@@ -31,7 +31,7 @@ clientRouter.get(
     "/export",
     authentication(TokenType.access),
     authorization(Role.ADMIN , Role.STAFF),
-    CS.exportExcel
+    CS.exportToExcel
 );
 
 clientRouter.get(

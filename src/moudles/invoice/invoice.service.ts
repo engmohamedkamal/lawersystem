@@ -8,6 +8,9 @@ import { generateAllInvoicesPDF, generateInvoicePDF } from "../../utils/invoicep
 import ClientModel from "../../DB/model/client.model";
 
 
+// type InvoiceItem = { description: string; amount: number }
+// const invoiceItems = data.items as InvoiceItem[]
+
 const syncCaseFees = async (legalCaseId: string) => {
     const allInvoices = await InvoiceModel.find({
         legalCase:  legalCaseId,
@@ -34,9 +37,10 @@ const syncCaseFees = async (legalCaseId: string) => {
 
 const addExtraPayment = async (
     legalCaseId: string,
-    clientId:    string,
-    invoiceId:   string,
-    amount:      number,
+    clientId: string,
+    invoiceId: string,
+    amount: number,
+    items: { description: string; amount: number }[],
     description: string,
     paymentMethod?: string,
 ) => {
@@ -48,12 +52,10 @@ const addExtraPayment = async (
         invoiceId,
     }
 
-    // أضف في القضية
     await LegalCaseModel.findByIdAndUpdate(legalCaseId, {
         $push: { extraPayments: paymentData },
     })
 
-    // أضف في العميل
     await ClientModel.findByIdAndUpdate(clientId, {
         $push: { extraPayments: { ...paymentData, legalCaseId } },
     })
@@ -147,6 +149,7 @@ class invoiceService {
                     clientId,
                     invoice._id.toString(),
                     paidAmount,
+                    data.items,
                     data.items.map((i: any) => i.description).join(" / "),
                     data.paymentMethod,
                 )
@@ -197,6 +200,7 @@ class invoiceService {
                     extraPayments: {
                         amount:        paidAmount,
                         description:   data.items.map((i: any) => i.description).join(" / "),
+                         items: data.items,
                         paymentMethod: data.paymentMethod,
                         paidAt:        new Date(),
                         invoiceId:     invoice._id,
@@ -251,7 +255,7 @@ class invoiceService {
     }
 
     updateInvoice = async (req: Request, res: Response, next: NextFunction) => {
-        const { invoiceId } = req.params
+        const { invoiceId } = req.params as { invoiceId: string }
         const data: UpdateInvoiceType = req.body
  
         const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
@@ -286,7 +290,6 @@ class invoiceService {
             { new: true }
         )
  
-        // ── لو الفاتورة مرتبطة بقضية ──────────────────────────────────────
         if (invoice.legalCase) {
  
             if (invoice.isFromFees) {
@@ -369,6 +372,17 @@ class invoiceService {
         res.setHeader("Content-Type",        "application/pdf")
         res.setHeader("Content-Disposition", `inline; filename="invoices-${clientId}.pdf"`)
         return res.send(pdfBuffer)
+    }
+
+    deleteInvoice = async (req: Request, res: Response, next: NextFunction) => {
+        const { invoiceId } = req.params as { invoiceId: string }
+ 
+        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
+        if (!invoice) throw new AppError("invoice not found", 404)
+ 
+        await InvoiceModel.findByIdAndUpdate(invoiceId, { isDeleted: true })
+ 
+        return res.status(200).json({ message: "Invoice deleted successfully" })
     }
 
     

@@ -83,7 +83,6 @@ class AppointmentService {
         }
     }
 
-
     getAppointments = async (req: Request, res: Response, next: NextFunction) => {
         const { status, serviceType, caseType, handledBy, page = "1", limit = "10" } = req.query
 
