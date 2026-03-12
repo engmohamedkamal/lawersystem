@@ -17,7 +17,7 @@ import SettingsRouter from "./moudles/setting/setting.controller"
 import { startCronJobs } from "./jobs/scheduler"
 import clientRouter from "./moudles/client/client.controller"
 import invoiceRouter from "./moudles/invoice/invoice.controller"
-import LegalCaseRouter from "./moudles/LegalِِCase/Legalcase.controller"
+import LegalCaseRouter from "./moudles/LegalِِCase-temp/Legalcase.controller"
 
 
 
