@@ -7,7 +7,7 @@ import { validation } from "../../middleware/validation";
 import * as CV from "./LegalCase.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
 import invoiceRouter from "../invoice/invoice.controller";
-import CS from "./Legalcase.service";
+import  CS from "./LegalCase.service";
 
 
 
