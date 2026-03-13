@@ -15,7 +15,7 @@ class ClientService {
         const now = new Date()
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-        const [totalClients, newThisMonth, activeClientIds, pendingFeesResult] = await Promise.all([
+        const [totalClients, newThisMonth, activeClientIds, pendingFromCases , pendingFromInvoices] = await Promise.all([
             ClientModel.countDocuments({ isDeleted: false }),
             ClientModel.countDocuments({ isDeleted: false, createdAt: { $gte: startOfMonth } }),
             LegalCaseModel.distinct("client", {
@@ -32,7 +32,11 @@ class ClientService {
                   },
                 },
                 { $group: { _id: null, total: { $sum: "$remaining" } } },
-              ])
+              ]),
+              InvoiceModel.aggregate([
+                { $match: { isDeleted: false, status: { $ne: "ملغية" }, isFromFees: false } },
+                { $group: { _id: null, total: { $sum: "$remaining" } } },
+            ]),
         ])
 
         const activeClients = await ClientModel.countDocuments({
@@ -46,7 +50,7 @@ class ClientService {
                 totalClients,
                 newThisMonth,
                 activeClients,
-                pendingFees: pendingFeesResult[0]?.total ?? 0,
+                pendingFees: (pendingFromCases[0]?.total ?? 0) + (pendingFromInvoices[0]?.total ?? 0),
             },
         })
     }
@@ -101,8 +105,8 @@ class ClientService {
                 { $group: { _id: "$client", count: { $sum: 1 } } },
             ]),
             InvoiceModel.aggregate([
-                { $match: { client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } } },
-                { $group: { _id: "$client", totalDue: { $sum: "$remaining" } } },
+                { $match: { client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } , isFromFees : false } },
+                { $group: { _id: "$client", totalDue: { $sum: "$remaining" } }},
             ]),
         ])
 
@@ -161,6 +165,12 @@ class ClientService {
         ) ?? 0
  
         const remainingFees = totalFees - paidFees
+
+        const remainingFromStandaloneInvoices = invoices
+            .filter(inv => !inv.isFromFees)
+            .reduce((sum: number, inv) => sum + (inv.remaining ?? 0), 0)
+ 
+        const totalDue = remainingFees + remainingFromStandaloneInvoices
  
         return res.status(200).json({
             message: "success",
@@ -170,18 +180,15 @@ class ClientService {
             summary: {
                 casesCount:          cases.length,
                 activeCasesCount,
- 
                 totalFees,
                 paidFees,
                 remainingFees,
- 
                 invoicesCount:       invoices.length,
                 totalInvoicesAmount,
                 totalInvoicesPaid,
- 
                 extraPaymentsTotal,
- 
                 grandTotalPaid:      paidFees + extraPaymentsTotal,
+                totalDue
             },
         })
     }
