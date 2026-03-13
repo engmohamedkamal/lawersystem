@@ -119,17 +119,24 @@ class ClientService {
         ])
 
         const caseCountMap = Object.fromEntries(
-            caseCounts.map(c => [c._id.toString(), c.count])
+             caseCounts.map(c => [c._id.toString(), { count: c.count, remainingFees: c.remainingFees }])
         )
         const invoiceDueMap = Object.fromEntries(
             invoiceSums.map(i => [i._id.toString(), i.totalDue])
         )
 
-        const result = clients.map(c => ({
+        const result = clients.map(c => {
+        const caseData              = caseCountMap[c._id.toString()]
+        const remainingFromCases    = caseData?.remainingFees         ?? 0
+        const remainingFromInvoices = invoiceDueMap[c._id.toString()] ?? 0
+        return {
             ...c.toJSON(),
-            casesCount: caseCountMap[c._id.toString()] ?? 0,
-            totalDue:   invoiceDueMap[c._id.toString()] ?? 0,
-        }))
+            casesCount: caseData?.count ?? 0,
+            totalDue:   remainingFromCases + remainingFromInvoices,
+        }
+    })
+
+        console.log("caseCounts:", JSON.stringify(caseCounts))
  
         return res.status(200).json({
             message:    "success",
