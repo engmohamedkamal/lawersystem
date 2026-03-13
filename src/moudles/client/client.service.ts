@@ -93,18 +93,30 @@ class ClientService {
             ClientModel.countDocuments(filter),
         ])
  
-        const clientIds  = clients.map(c => c._id)
-        const caseCounts = await LegalCaseModel.aggregate([
-            { $match: { client: { $in: clientIds }, isDeleted: false } },
-            { $group: { _id: "$client", count: { $sum: 1 } } },
+        const clientIds = clients.map(c => c._id)
+
+        const [caseCounts, invoiceSums] = await Promise.all([
+            LegalCaseModel.aggregate([
+                { $match: { client: { $in: clientIds }, isDeleted: false } },
+                { $group: { _id: "$client", count: { $sum: 1 } } },
+            ]),
+            InvoiceModel.aggregate([
+                { $match: { client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } } },
+                { $group: { _id: "$client", totalDue: { $sum: "$remaining" } } },
+            ]),
         ])
+
         const caseCountMap = Object.fromEntries(
             caseCounts.map(c => [c._id.toString(), c.count])
         )
- 
+        const invoiceDueMap = Object.fromEntries(
+            invoiceSums.map(i => [i._id.toString(), i.totalDue])
+        )
+
         const result = clients.map(c => ({
             ...c.toJSON(),
             casesCount: caseCountMap[c._id.toString()] ?? 0,
+            totalDue:   invoiceDueMap[c._id.toString()] ?? 0,
         }))
  
         return res.status(200).json({
