@@ -101,9 +101,17 @@ class ClientService {
 
         const [caseCounts, invoiceSums] = await Promise.all([
             LegalCaseModel.aggregate([
-                { $match: { client: { $in: clientIds }, isDeleted: false } },
-                { $group: { _id: "$client", count: { $sum: 1 } } },
-            ]),
+            { $match: { isDeleted: false } },  
+            {
+                $group: {
+                    _id:           "$client",
+                    count:         { $sum: 1 },
+                    remainingFees: {
+                        $sum: { $max: [{ $subtract: ["$fees.totalAmount", "$fees.paidAmount"] }, 0] }
+                    },
+                }
+            },
+        ]),
             InvoiceModel.aggregate([
                 { $match: { client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } , isFromFees : false } },
                 { $group: { _id: "$client", totalDue: { $sum: "$remaining" } }},
