@@ -8,8 +8,6 @@ import { generateAllInvoicesPDF, generateInvoicePDF } from "../../utils/invoicep
 import ClientModel from "../../DB/model/client.model";
 
 
-// type InvoiceItem = { description: string; amount: number }
-// const invoiceItems = data.items as InvoiceItem[]
 
 const syncCaseFees = async (legalCaseId: string) => {
     const allInvoices = await InvoiceModel.find({

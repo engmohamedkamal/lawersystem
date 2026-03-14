@@ -170,7 +170,7 @@ class ClientService {
             client:    id,
             isDeleted: false,
             status:    { $ne: "ملغية" },
-        }).select("invoiceNumber total paidAmount remaining status isFromFees legalCase issueDate")
+        }).select("invoiceNumber total paidAmount remaining status isFromFees discount tax legalCase issueDate")
  
         const totalInvoicesAmount = invoices.reduce((sum : number, inv) => sum + (inv.total ?? 0), 0)
         const totalInvoicesPaid   = invoices.reduce((sum : number, inv) => sum + (inv.paidAmount ?? 0), 0)
