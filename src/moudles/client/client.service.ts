@@ -232,27 +232,35 @@ class ClientService {
         const client = await ClientModel.findOne({ _id: id, isDeleted: false })
         if (!client) throw new AppError("client not found", 404)
 
+
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase()
+        const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+
+        const baseName = safeName.replace(/\.[^/.]+$/, "")
+        const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+        const finalPublicId = `${sanitizedBaseName}.${ext}`
+
         const { secure_url, public_id } = await uploadBuffer(
-            req.file.buffer,
-            `clients/${id}/documents`
-             
+          req.file.buffer,
+          `clients/${id}/documents`,
+          "raw",
+          finalPublicId
         )
 
         const updated = await ClientModel.findByIdAndUpdate(
-            id,
-            {
-                $push: {
-                    documents: {
-                        url:        secure_url,
-                        publicId:   public_id,
-                        name:       req.file.originalname,
-                        uploadedAt: new Date(),
-                    },
-                },
+          id,
+          {
+            $push: {
+              documents: {
+                url: secure_url,
+                publicId: public_id,
+                name: safeName,
+                uploadedAt: new Date(),
+              },
             },
-            { new: true }
+          },
+          { returnDocument: "after" }
         )
-
         return res.status(200).json({ message: "Document uploaded successfully", client: updated })
     }
 
