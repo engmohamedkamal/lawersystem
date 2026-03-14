@@ -235,6 +235,7 @@ class ClientService {
         const { secure_url, public_id } = await uploadBuffer(
             req.file.buffer,
             `clients/${id}/documents`
+             
         )
 
         const updated = await ClientModel.findByIdAndUpdate(

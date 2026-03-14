@@ -18,10 +18,18 @@ import { startCronJobs } from "./jobs/scheduler"
 import clientRouter from "./moudles/client/client.controller"
 import invoiceRouter from "./moudles/invoice/invoice.controller"
 import LegalCaseRouter from "./moudles/LegalِِCase/LegalCase.controller"
+import { initSocket } from "./utils/soket"
+import { createServer } from "http"
+import taskRouter from "./moudles/task/task.controller"
+
 
 
 
 const app:express.Application = express()
+
+const httpServer = createServer(app)
+export { httpServer }
+
 const port = Number(process.env.PORT) || 5000;
 
 
@@ -53,11 +61,14 @@ const bootStrap = ()=>{
     app.use("/Client", clientRouter);
     app.use("/invoices", invoiceRouter);
     app.use("/LegalCase", LegalCaseRouter); 
+    app.use("/task", taskRouter); 
     
     
     connectionDB()
 
     startCronJobs(); 
+
+    initSocket(httpServer)
 
     app.get("/",(req:Request,res:Response,next:NextFunction)=>{
         return res.status(200).json({message:`welcome on my app`})
