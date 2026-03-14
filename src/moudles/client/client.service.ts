@@ -233,8 +233,13 @@ class ClientService {
         if (!client) throw new AppError("client not found", 404)
 
 
-        const ext = req.file.originalname.split(".").pop()?.toLowerCase()
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+
+        const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+
+        const resourceType: "image" | "raw" =
+          imageExts.includes(ext) ? "image" : "raw"
 
         const baseName = safeName.replace(/\.[^/.]+$/, "")
         const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
@@ -243,7 +248,7 @@ class ClientService {
         const { secure_url, public_id } = await uploadBuffer(
           req.file.buffer,
           `clients/${id}/documents`,
-          "raw",
+          resourceType,
           finalPublicId
         )
 
