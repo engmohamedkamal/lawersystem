@@ -484,19 +484,21 @@ ${invoicesHTML}
 </html>`
 
         const browser = await puppeteer.launch({
-            headless: true,
-            args:     ["--no-sandbox", "--disable-setuid-sandbox"],
-        })
-        const page = await browser.newPage()
-        await page.setContent(html, { waitUntil: "domcontentloaded" , timeout: 60000, })
-        await page.evaluate(async () => {await document.fonts.ready})
-        const pdfBuffer = await page.pdf({
-            format:          "A4",
-            printBackground: true,
-            margin: { top: "0", right: "0", bottom: "0", left: "0" },
-        })
-        await browser.close()
-        resolve(Buffer.from(pdfBuffer))
+        headless: true,
+        args:     ["--no-sandbox", "--disable-setuid-sandbox"],
     })
+
+    const page = await browser.newPage()
+    await page.setContent(html, { waitUntil: "networkidle0" })
+
+    const pdfBuffer = await page.pdf({
+        format:            "A4",
+        printBackground:   true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+    })
+
+    await browser.close()
+    return Buffer.from(pdfBuffer)
+})
 }
 
