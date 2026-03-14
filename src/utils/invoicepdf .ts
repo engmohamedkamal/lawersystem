@@ -489,6 +489,7 @@ ${invoicesHTML}
         })
         const page = await browser.newPage()
         await page.setContent(html, { waitUntil: "domcontentloaded" , timeout: 60000, })
+        await page.evaluate(async () => {await document.fonts.ready})
         const pdfBuffer = await page.pdf({
             format:          "A4",
             printBackground: true,
@@ -498,3 +499,4 @@ ${invoicesHTML}
         resolve(Buffer.from(pdfBuffer))
     })
 }
+

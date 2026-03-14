@@ -19,4 +19,34 @@ taskRouter.post(
 )
 
 
+taskRouter.get(
+    "/lawyer/:userId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    TS.getTasksByLawyer
+)
+
+taskRouter.get(
+    "/:taskId",
+    authentication(TokenType.access),
+    TS.getTaskById
+)
+ 
+taskRouter.patch(
+    "/:taskId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(TV.updateTaskSchema),
+    TS.updateTask
+)
+ 
+taskRouter.patch(
+    "/:taskId/status",
+    authentication(TokenType.access),
+    validation(TV.updateTaskStatusSchema),
+    TS.updateTaskStatus
+)
+
+
+
 export default taskRouter;
