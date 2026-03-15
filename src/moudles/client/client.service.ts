@@ -180,12 +180,56 @@ class ClientService {
         ) ?? 0
  
         const remainingFees = totalFees - paidFees
-
-        const remainingFromStandaloneInvoices = invoices
-            .filter(inv => !inv.isFromFees)
+ 
+        const standaloneInvoices = invoices.filter(inv => !inv.isFromFees && !inv.legalCase)
+        const caseExtraInvoices  = invoices.filter(inv => !inv.isFromFees && inv.legalCase)
+ 
+        const remainingFromStandaloneInvoices = standaloneInvoices
+            .reduce((sum: number, inv) => sum + (inv.remaining ?? 0), 0)
+        const remainingFromCaseExtraInvoices  = caseExtraInvoices
             .reduce((sum: number, inv) => sum + (inv.remaining ?? 0), 0)
  
-        const totalDue = remainingFees + remainingFromStandaloneInvoices
+        const totalDue = remainingFees + remainingFromStandaloneInvoices + remainingFromCaseExtraInvoices
+ 
+        const totalDueBreakdown = {
+            fromCases: cases
+                .filter(c => {
+                    const caseRemaining = Math.max((c.fees?.totalAmount ?? 0) - (c.fees?.paidAmount ?? 0), 0)
+                    const caseExtraRem  = caseExtraInvoices
+                        .filter(inv => inv.legalCase?.toString() === c._id.toString())
+                        .reduce((sum: number, inv) => sum + (inv.remaining ?? 0), 0)
+                    return caseRemaining > 0 || caseExtraRem > 0
+                })
+                .map(c => {
+                    const caseExtraInvs = caseExtraInvoices.filter(
+                        inv => inv.legalCase?.toString() === c._id.toString()
+                    )
+                    return {
+                        caseNumber: c.caseNumber,
+                        status:     c.status,
+                        fees: {
+                            total:     c.fees?.totalAmount ?? 0,
+                            paid:      c.fees?.paidAmount  ?? 0,
+                            remaining: Math.max((c.fees?.totalAmount ?? 0) - (c.fees?.paidAmount ?? 0), 0),
+                        },
+                        extraInvoices: caseExtraInvs.map(inv => ({
+                            invoiceNumber: inv.invoiceNumber,
+                            total:         inv.total,
+                            paid:          inv.paidAmount,
+                            remaining:     inv.remaining,
+                        })),
+                    }
+                }),
+ 
+            fromStandaloneInvoices: standaloneInvoices
+                .filter(inv => (inv.remaining ?? 0) > 0)
+                .map(inv => ({
+                    invoiceNumber: inv.invoiceNumber,
+                    total:         inv.total,
+                    paid:          inv.paidAmount,
+                    remaining:     inv.remaining,
+                })),
+        }
  
         return res.status(200).json({
             message: "success",
@@ -193,19 +237,26 @@ class ClientService {
             cases,
             invoices,
             summary: {
-                casesCount:          cases.length,
+                casesCount:       cases.length,
                 activeCasesCount,
+ 
                 totalFees,
                 paidFees,
                 remainingFees,
-                invoicesCount:       invoices.length,
+ 
+                invoicesCount:    invoices.length,
                 totalInvoicesAmount,
                 totalInvoicesPaid,
+ 
                 extraPaymentsTotal,
-                grandTotalPaid:      paidFees + extraPaymentsTotal,
-                totalDue
+                grandTotalPaid:   totalInvoicesPaid,
+ 
+                totalDue,
+                totalDueBreakdown,
             },
         })
+            
+            
     }
 
     updateClient = async (req: Request, res: Response, next: NextFunction) => {

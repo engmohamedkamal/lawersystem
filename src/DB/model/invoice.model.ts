@@ -33,7 +33,7 @@ export interface IInvoice extends mongoose.Document {
 const InvoiceItemSchema = new mongoose.Schema<IInvoiceItem>(
     {
         description: { type: String, required: true, trim: true },
-        amount:      { type: Number, required: true, min: 0 },
+        amount:      { type: Number, required: false, min: 0 },
     },
     { _id: false }
 )

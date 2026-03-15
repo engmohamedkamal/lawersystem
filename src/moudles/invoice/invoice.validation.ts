@@ -12,6 +12,7 @@ export const createInvoiceSchema = {
         paidAmount:    z.number().min(0).default(0),
         discount:      z.number().min(0).max(100).default(0),
         tax:           z.number().min(0).max(100).default(0),
+        isFromFees:    z.boolean().optional().default(true),
         paymentMethod: z.string().trim().optional(),
         dueDate:       z.string().optional(),
         notes:         z.string().trim().max(1000).optional(),
@@ -34,7 +35,7 @@ export const caseInvoiceParamsSchema = {
 export const createStandaloneInvoiceSchema = {
     body: z.object({
         clientId:      z.string().min(1, "clientId required"),
-        items:         z.array(invoiceItemSchema).optional(),
+        items:         z.array(invoiceItemSchema).optional().default([]),
         discount:      z.number().min(0).max(100).default(0),
         tax:           z.number().min(0).max(100).default(0),
         paidAmount:    z.number().min(0).default(0),
@@ -58,7 +59,6 @@ export const updateInvoiceSchema = z.object({params: z.object({
         status:        z.enum([...INVOICE_STATUSES] as [string, ...string[]]).optional(),
     }),
 })
-
 
 export type CreateStandaloneInvoiceType = z.infer<typeof createStandaloneInvoiceSchema.body>
 export type CreateInvoiceType = z.infer<typeof createInvoiceSchema.body>
