@@ -1,14 +1,15 @@
-import z from "zod";
+import z, { optional } from "zod";
 import { INVOICE_STATUSES } from "../../DB/model/invoice.model";
 
 const invoiceItemSchema = z.object({
-    description: z.string(),
-    amount:      z.number(),
+    description: z.string().min(1),
+    amount:      z.number().min(0).optional().default(0),
 })
 
 export const createInvoiceSchema = {
     body: z.object({
         items:         z.array(invoiceItemSchema).min(1, "at least one item required"),
+        paidAmount:    z.number().min(0).default(0),
         discount:      z.number().min(0).max(100).default(0),
         tax:           z.number().min(0).max(100).default(0),
         paymentMethod: z.string().trim().optional(),
@@ -33,7 +34,7 @@ export const caseInvoiceParamsSchema = {
 export const createStandaloneInvoiceSchema = {
     body: z.object({
         clientId:      z.string().min(1, "clientId required"),
-        items:         z.array(invoiceItemSchema).min(1, "at least one item required"),
+        items:         z.array(invoiceItemSchema).optional(),
         discount:      z.number().min(0).max(100).default(0),
         tax:           z.number().min(0).max(100).default(0),
         paidAmount:    z.number().min(0).default(0),

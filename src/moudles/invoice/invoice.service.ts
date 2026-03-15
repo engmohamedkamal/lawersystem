@@ -66,12 +66,12 @@ const generateInvoiceNumber = async (): Promise<string> => {
 }
 
 const calcTotals = (
-    items:      { amount: number }[],
+    items:      { amount: number }[] | undefined,
     discount:   number,
     tax:        number,
     paidAmount: number
 ) => {
-    const subtotal  = items.reduce((sum, i) => sum + i.amount, 0)
+    const subtotal  = items?.length? items.reduce((sum , i)=> sum+ (i.amount ?? 0),0) : paidAmount
     const discountAmount = (subtotal * discount) / 100
     const afterDiscount  = subtotal - discountAmount
     const taxAmount      = (afterDiscount * tax) / 100
@@ -103,6 +103,7 @@ class invoiceService {
         const tax       = data.tax        ?? 0
         const paidAmount    = (data as any).paidAmount ?? 0
         const isFromFees    = (data as any).isFromFees ?? true
+        const items         = data.items ?? []
         const { subtotal, total, remaining } = calcTotals(data.items, discount, tax, paidAmount)
 
         let status: "مسودة" | "مُصدرة" | "مدفوعة" = "مسودة"
@@ -147,8 +148,8 @@ class invoiceService {
                     clientId,
                     invoice._id.toString(),
                     paidAmount,
-                    data.items,
-                    data.items.map((i: any) => i.description).join(" / "),
+                    items,
+                     items.length ? items.map((i: any) => i.description).join(" / ") : `دفعة ${paidAmount}`,
                     data.paymentMethod,
                 )
             }
@@ -167,7 +168,8 @@ class invoiceService {
         const discount      = data.discount   ?? 0
         const tax           = data.tax        ?? 0
         const paidAmount    = data.paidAmount ?? 0
-        const { subtotal, total, remaining } = calcTotals(data.items, discount, tax, paidAmount)
+        const items         = data.items ?? []
+        const { subtotal, total, remaining } = calcTotals(items, discount, tax, paidAmount)
 
         let status: "مسودة" | "مُصدرة" | "مدفوعة" = "مسودة"
         if (paidAmount >= total)  status = "مدفوعة"
@@ -175,9 +177,9 @@ class invoiceService {
 
         const invoice = await InvoiceModel.create({
             invoiceNumber,
-            client:        data.clientId,
-            legalCase:     undefined,
-            items:         data.items,
+            client: data.clientId,
+            legalCase: undefined,
+            items ,
             subtotal,
             discount,
             tax,
@@ -197,8 +199,8 @@ class invoiceService {
                 $push: {
                     extraPayments: {
                         amount:        paidAmount,
-                        description:   data.items.map((i: any) => i.description).join(" / "),
-                         items: data.items,
+                        description:  items.length ? items.map((i: any) => i.description).join(" / ") : `دفعة ${paidAmount}`,
+                         items,
                         paymentMethod: data.paymentMethod,
                         paidAt:        new Date(),
                         invoiceId:     invoice._id,

@@ -503,3 +503,4 @@ ${invoicesHTML}
         resolve(Buffer.from(pdfBuffer))
     })
 }
+
