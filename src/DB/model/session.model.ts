@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose";
 
-export const SESSION_TYPES    = ["جلسة محكمة", "جلسة استماع", "اجتماع", "مكالمة", "أخرى"] as const;
+export const SESSION_TYPES    = ["نيابة","جلسة محكمة", "جلسة استماع", "اجتماع", "مكالمة", "أخرى"] as const;
 export const SESSION_STATUSES = ["مجدولة", "تمت", "مؤجلة", "ملغية"] as const;
 export type SessionType   = (typeof SESSION_TYPES)[number];
 export type SessionStatus = (typeof SESSION_STATUSES)[number];

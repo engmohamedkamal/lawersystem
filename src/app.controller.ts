@@ -21,6 +21,8 @@ import LegalCaseRouter from "./moudles/LegalِِCase/LegalCase.controller"
 import { initSocket } from "./utils/soket"
 import { createServer } from "http"
 import taskRouter from "./moudles/task/task.controller"
+import DashboardRouter from "./moudles/Dashboard/Dashboard.controller"
+import archiveRouter from "./moudles/Archive/Archive.controller"
 
 
 
@@ -61,7 +63,9 @@ const bootStrap = ()=>{
     app.use("/Client", clientRouter);
     app.use("/invoices", invoiceRouter);
     app.use("/LegalCase", LegalCaseRouter); 
-    app.use("/task", taskRouter); 
+    app.use("/task", taskRouter);
+    app.use("/Dashboard", DashboardRouter); 
+    app.use("/Archive", archiveRouter); 
     
     
     connectionDB()

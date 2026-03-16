@@ -42,6 +42,13 @@ invoiceRouter.get(
 )
 
 invoiceRouter.get(
+    "/all",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    IS.getAllInvoices
+)
+
+invoiceRouter.get(
     "/:invoiceId",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
@@ -61,6 +68,7 @@ invoiceRouter.get(
     authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
     IS.printAllClientInvoices
 )
+
 
 invoiceRouter.delete(
     "/:invoiceId",

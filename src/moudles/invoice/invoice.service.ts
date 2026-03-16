@@ -52,9 +52,10 @@ const calcTotals = (
     return { subtotal, total, remaining }
 }
 
-const resolveInvoiceStatus = (paidAmount: number, total: number) => {
+const resolveInvoiceStatus = (paidAmount: number, total: number , dueDate : Date | undefined) => {
     if (total <= 0)              return "مسودة"
     if (paidAmount >= total)     return "مدفوعة"
+    if (dueDate && dueDate < new Date() && paidAmount < total) return "متأخرة"
     if (paidAmount > 0)          return "مُصدرة"
     return "مسودة"
 }
@@ -141,6 +142,7 @@ class invoiceService {
         const paidAmount = data.paidAmount ?? 0
         const isFromFees = data.isFromFees ?? true
         const items      = data.items ?? []
+        const dueDateP = data.dueDate ? new Date(data.dueDate) : undefined
 
         if (!isFromFees && !items.length) {
             throw new AppError("فاتورة إضافية على القضية تتطلب items", 400)
@@ -151,12 +153,10 @@ class invoiceService {
             discount, tax, paidAmount
         )
 
-        // guard: prevent zero-total invoice with payment
         if (total <= 0 && paidAmount > 0) {
             throw new AppError("إجمالي الفاتورة يجب أن يكون أكبر من صفر", 400)
         }
 
-        // guard: prevent overpayment on fees invoices — uses real invoice data not cached fees.paidAmount
         if (isFromFees && paidAmount > 0) {
             const caseTotal    = legalCase.fees?.totalAmount ?? 0
             const existingPaid = await getCaseFeesPaidFromInvoices(id)
@@ -169,7 +169,7 @@ class invoiceService {
         }
 
         const invoiceNumber = await generateInvoiceNumber()
-        const status        = resolveInvoiceStatus(paidAmount, total)
+        const status        = resolveInvoiceStatus(paidAmount, total , dueDateP )
 
         const invoice = await InvoiceModel.create({
             invoiceNumber,
@@ -216,8 +216,8 @@ class invoiceService {
         const tax        = data.tax        ?? 0
         const paidAmount = data.paidAmount ?? 0
         const items      = data.items ?? []
+        const dueDateP = data.dueDate ? new Date(data.dueDate) : undefined
 
-        // guard: standalone invoice must have items
         if (!items.length) throw new AppError("items are required", 400)
 
         const { subtotal, total, remaining } = calcTotals(items, discount, tax, paidAmount)
@@ -227,7 +227,7 @@ class invoiceService {
         }
 
         const invoiceNumber = await generateInvoiceNumber()
-        const status        = resolveInvoiceStatus(paidAmount, total)
+        const status        = resolveInvoiceStatus(paidAmount, total , dueDateP)
 
         const invoice = await InvoiceModel.create({
             invoiceNumber,
@@ -273,7 +273,6 @@ class invoiceService {
         const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
         if (!invoice) throw new AppError("invoice not found", 404)
 
-        // guard: prevent update on cancelled invoice
         if (invoice.status === "ملغية") {
             throw new AppError("cannot update a cancelled invoice", 400)
         }
@@ -283,7 +282,7 @@ class invoiceService {
         const tax        = data.tax        ?? invoice.tax
         const paidAmount = data.paidAmount ?? invoice.paidAmount
 
-        // guard: prevent clearing items on existing invoice
+
         if (!items.length) throw new AppError("items are required", 400)
 
         const { subtotal, total, remaining } = calcTotals(
@@ -295,13 +294,12 @@ class invoiceService {
             throw new AppError("إجمالي الفاتورة يجب أن يكون أكبر من صفر", 400)
         }
 
-        // guard: prevent overpayment in fees invoices — excludes current invoice from sum
         if (invoice.isFromFees && invoice.legalCase && paidAmount > 0) {
             const legalCase    = await LegalCaseModel.findById(invoice.legalCase)
             const caseTotal    = legalCase?.fees?.totalAmount ?? 0
             const existingPaid = await getCaseFeesPaidFromInvoices(
                 invoice.legalCase.toString(),
-                invoice._id   // exclude current invoice
+                invoice._id   
             )
             if (caseTotal > 0 && existingPaid + paidAmount > caseTotal) {
                 throw new AppError(
@@ -311,7 +309,8 @@ class invoiceService {
             }
         }
 
-        const status = resolveInvoiceStatus(paidAmount, total)
+        const parsedDueDate = data.dueDate ? new Date(data.dueDate) : invoice.dueDate
+        const status = resolveInvoiceStatus(paidAmount, total , parsedDueDate)
 
         const updated = await InvoiceModel.findByIdAndUpdate(
             invoiceId,
@@ -332,7 +331,6 @@ class invoiceService {
             if (invoice.isFromFees) {
                 await syncCaseFees(invoice.legalCase.toString())
             } else {
-                // حذف الأثر القديم دائمًا ثم إضافة الجديد لو paidAmount > 0
                 await removeExtraPayment(invoice.legalCase.toString(), clientId, invoice._id)
                 if (paidAmount > 0) {
                     await addExtraPayment(
@@ -347,7 +345,6 @@ class invoiceService {
                 }
             }
         } else {
-            // standalone invoice — حذف الأثر القديم ثم إضافة الجديد لو paidAmount > 0
             await removeExtraPayment(null, clientId, invoice._id)
             if (paidAmount > 0) {
                 await ClientModel.findByIdAndUpdate(clientId, {
@@ -443,6 +440,82 @@ class invoiceService {
         res.setHeader("Content-Disposition", `inline; filename="invoices-${clientId}.pdf"`)
         return res.send(pdfBuffer)
     }
+
+    getAllInvoices = async (req: Request, res: Response, next: NextFunction) => {
+        const { status, isFromFees, client, search, page = "1", limit = "10" } = req.query
+ 
+        const now = new Date()
+ 
+        const filter: Record<string, any> = { isDeleted: false }
+        if (status)     filter.status     = status
+        if (isFromFees !== undefined) filter.isFromFees = isFromFees === "true"
+        if (client)     filter.client     = client
+        if (search) {
+            filter.invoiceNumber = { $regex: search, $options: "i" }
+        }
+ 
+        const pageNum  = Math.max(Number(page), 1)
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100)
+        const skip     = (pageNum - 1) * limitNum
+ 
+        const [invoices, total, statsResult] = await Promise.all([
+            InvoiceModel.find(filter)
+                .populate("client",    "fullName phone type")
+                .populate("legalCase", "caseNumber status")
+                .populate("createdBy", "UserName")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            InvoiceModel.countDocuments(filter),
+            InvoiceModel.aggregate([
+                { $match: { isDeleted: false, status: { $ne: "ملغية" } } },
+                {
+                    $group: {
+                        _id:              null,
+                        totalRevenue:     { $sum: "$paidAmount" },
+                        totalUnpaid:      { $sum: "$remaining" },
+                        totalInvoices:    { $sum: 1 },
+                    }
+                }
+            ]),
+        ])
+ 
+        const overdueCount = await InvoiceModel.countDocuments({
+            isDeleted: false,
+            status:    { $nin: ["مدفوعة", "ملغية"] },
+            dueDate:   { $lt: now },
+            remaining: { $gt: 0 },
+        })
+ 
+        const overdueAmount = await InvoiceModel.aggregate([
+            {
+                $match: {
+                    isDeleted: false,
+                    status:    { $nin: ["مدفوعة", "ملغية"] },
+                    dueDate:   { $lt: now },
+                    remaining: { $gt: 0 },
+                }
+            },
+            { $group: { _id: null, total: { $sum: "$remaining" } } },
+        ])
+ 
+        const stats = statsResult[0] ?? { totalRevenue: 0, totalUnpaid: 0, totalInvoices: 0 }
+ 
+        return res.status(200).json({
+            message: "success",
+            stats: {
+                totalRevenue:   stats.totalRevenue,  
+                totalUnpaid:    stats.totalUnpaid,    
+                overdueAmount:  overdueAmount[0]?.total ?? 0,  
+                overdueCount,
+            },
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            invoices,
+        })
+    }
+
 }
 
 export default new invoiceService()

@@ -6,8 +6,22 @@ import { authentication } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
 import { authorization } from "../../middleware/authorization";
 import { Role } from "../../DB/model/user.model";
+import { allowedExtensions, MulterHost } from "../../middleware/multer";
 
 const taskRouter = Router();
+
+//Notifications
+taskRouter.get(
+    "/notifications",
+    authentication(TokenType.access),
+    TS.getMyNotifications
+)
+ 
+taskRouter.patch(
+    "/notifications/read",
+    authentication(TokenType.access),
+    TS.markNotificationsRead
+)
 
 //CRUD
 taskRouter.post(
@@ -46,6 +60,29 @@ taskRouter.patch(
     validation(TV.updateTaskStatusSchema),
     TS.updateTaskStatus
 )
+
+taskRouter.post(
+    "/:taskId/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles] }).single("file"),
+    TS.uploadAttachment
+)
+ 
+taskRouter.delete(
+    "/:taskId/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    TS.deleteAttachment
+)
+
+taskRouter.delete(
+    "/:taskId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    TS.deleteTask
+)
+
 
 
 

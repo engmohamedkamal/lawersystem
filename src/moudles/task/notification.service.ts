@@ -8,20 +8,35 @@ export const sendNotification = async ({
     title,
     body,
     taskId,
+    taskTitle,
+    clientName,
+    clientPhone,
+    clientEmail,
+    dueDate,
 }: {
     userId: string
     type:   NotificationType
     title:  string
     body:   string
-    taskId?: string
+    taskId?: string | undefined
+    taskTitle?:  string | undefined
+    clientName?: string | undefined
+    clientPhone?: string | undefined
+    clientEmail?: string | undefined
+    dueDate?:    Date | undefined
 }) => {
     const notification = await NotificationModel.create({
-        user:   userId,
+        user: userId,
         type,
         title,
         body,
-        task:   taskId,
         isRead: false,
+        taskId,
+        taskTitle,
+        clientName,
+        clientPhone,
+        clientEmail,
+        dueDate,
     })
 
     emitToUser(userId, "notification", {
@@ -29,8 +44,13 @@ export const sendNotification = async ({
         type,
         title,
         body,
-        taskId,
         isRead: false,
+        taskId,
+        taskTitle,
+        clientName,
+        clientPhone,
+        clientEmail,
+        dueDate,
         createdAt: notification.createdAt,
     })
 

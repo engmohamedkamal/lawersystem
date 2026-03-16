@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose"
 
-export const INVOICE_STATUSES = ["مسودة", "مُصدرة", "مدفوعة", "ملغية"] as const
+export const INVOICE_STATUSES = ["متأخرة","مسودة", "مُصدرة", "مدفوعة", "ملغية"] as const
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
 
 export interface IInvoiceItem {

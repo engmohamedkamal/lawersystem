@@ -4,25 +4,22 @@ import UserModel, { Role } from "../../DB/model/user.model";
 import TaskModel from "../../DB/model/tasks.model";
 import { sendNotification } from "./notification.service";
 import ClientModel from "../../DB/model/client.model";
+import NotificationModel from "../../DB/model/Notification.model";
+import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import cloudinary from "../../utils/cloudInary";
 
 class taskService {
   constructor() {}
 
   createTask = async (req: Request, res: Response, next: NextFunction) => {
-        const { title, description, assignedTo,client, legalCase, priority, dueDate } = req.body
+        const { title, description, assignedTo, client, legalCase, priority, dueDate } = req.body
  
-
-
         const [lawyer, clientDoc] = await Promise.all([
-
-               UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER }),
-               ClientModel.findOne({ _id: client, isDeleted: false }),
-
+            UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER }),
+            ClientModel.findOne({ _id: client, isDeleted: false }),
         ])
-        
-        if (!lawyer) throw new AppError("المحامي غير موجود", 404)
+        if (!lawyer)    throw new AppError("المحامي غير موجود", 404)
         if (!clientDoc) throw new AppError("العميل غير موجود", 404)
-
  
         const task = await TaskModel.create({
             title,
@@ -41,12 +38,21 @@ class taskService {
             .populate("client",     "fullName phone type")
             .populate("legalCase",  "caseNumber status")
  
+        const dueDateFormatted = dueDate
+            ? new Date(dueDate).toLocaleDateString("ar-EG")
+            : null
+ 
         await sendNotification({
-            userId: assignedTo,
-            type:   "task_assigned",
-            title:  "مهمة جديدة",
-            body:   `تم تكليفك بمهمة جديدة: ${title}`,
-            taskId: task._id.toString(),
+            userId:      assignedTo,
+            type:        "task_assigned",
+            title:       "مهمة جديدة",
+            body:        `تم تكليفك بمهمة: ${title} — العميل: ${clientDoc.fullName}${dueDateFormatted ? ` — الموعد: ${dueDateFormatted}` : ""}`,
+            taskId:      task._id,
+            taskTitle:   title,
+            clientName:  clientDoc.fullName,
+            clientPhone: clientDoc.phone,
+            clientEmail: clientDoc.email ?? undefined,
+            dueDate:     dueDate ? new Date(dueDate) : undefined,
         })
  
         return res.status(201).json({ message: "Task created successfully", task: populated })
@@ -160,7 +166,7 @@ class taskService {
         return res.status(200).json({ message: "success", task })
     }
 
-    updateTask = async (req: Request, res: Response, next: NextFunction) => {
+  updateTask = async (req: Request, res: Response, next: NextFunction) => {
         const taskId = req.params.taskId as string
         const data = req.body
  
@@ -188,7 +194,7 @@ class taskService {
         return res.status(200).json({ message: "Task updated successfully", task: updated })
     }
  
-    updateTaskStatus = async (req: Request, res: Response, next: NextFunction) => {
+  updateTaskStatus = async (req: Request, res: Response, next: NextFunction) => {
         const taskId  = req.params.taskId as string
         const { status } = req.body
         const role       = req.user?.role
@@ -197,7 +203,7 @@ class taskService {
         const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
         if (!task) throw new AppError("المهمة غير موجودة", 404)
  
-        if (role === Role.LAWYER && task.assignedTo.toString() !== userId) {
+        if (role === Role.LAWYER && task.assignedTo?.toString() !== userId) {
             throw new AppError("غير مصرح", 403)
         }
  
@@ -218,6 +224,98 @@ class taskService {
         }
  
         return res.status(200).json({ message: "Status updated successfully", task: updated })
+    }
+
+  uploadAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const taskId = req.params.taskId as string
+        if (!req.file) throw new AppError("No file uploaded", 400)
+ 
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        if (!task) throw new AppError("المهمة غير موجودة", 404)
+ 
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
+        const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+        const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+ 
+        const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
+
+        const baseName = safeName.replace(/\.[^/.]+$/, "")
+        const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+        const finalPublicId = `${sanitizedBaseName}.${ext}`
+
+        const { secure_url, public_id } = await uploadBuffer(
+            req.file.buffer,
+            `tasks/${taskId}/attachments`,
+            resourceType,
+            finalPublicId
+        )
+ 
+
+        const updated = await TaskModel.findByIdAndUpdate(
+            taskId,
+            { $push: { attachments: { url: secure_url, publicId: public_id, name: safeName } } },
+            { new: true }
+        )
+ 
+        return res.status(200).json({ message: "Attachment uploaded successfully", task: updated })
+    }
+
+  deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const taskId = req.params.taskId as string
+        const { publicId } = req.body
+ 
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        if (!task) throw new AppError("المهمة غير موجودة", 404)
+ 
+        const attachment = task.attachments.find(
+            (a: { publicId: string }) => a.publicId === decodeURIComponent(publicId)
+        )
+        if (!attachment) throw new AppError("المستند غير موجود", 404)
+ 
+        await cloudinary.uploader.destroy(attachment.publicId)
+ 
+        const updated = await TaskModel.findByIdAndUpdate(
+            taskId,
+            { $pull: { attachments: { publicId: attachment.publicId } } },
+            { new: true }
+        )
+ 
+        return res.status(200).json({ message: "Attachment deleted successfully", task: updated })
+    }
+
+  deleteTask = async (req: Request, res: Response, next: NextFunction) => {
+        const taskId = req.params.taskId as string
+ 
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        if (!task) throw new AppError("المهمة غير موجودة", 404)
+ 
+        await TaskModel.findByIdAndUpdate(taskId, { isDeleted: true })
+ 
+        return res.status(200).json({ message: "Task deleted successfully" })
+    }
+
+  getMyNotifications = async (req: Request, res: Response, next: NextFunction) => {
+        const userId = req.user?.id
+ 
+        const notifications = await NotificationModel.find({ user: userId })
+            .sort({ createdAt: -1 })
+            .limit(50)
+
+        
+        const unreadCount = await NotificationModel.countDocuments({ user: userId, isRead: false })
+ 
+        return res.status(200).json({ message: "success", unreadCount, notifications })
+    }
+ 
+  markNotificationsRead = async (req: Request, res: Response, next: NextFunction) => {
+        const userId = req.user?.id
+ 
+        await NotificationModel.updateMany(
+            { user: userId, isRead: false },
+            { $set: { isRead: true } }
+        )
+ 
+        return res.status(200).json({ message: "Notifications marked as read" })
     }
 
   

@@ -9,25 +9,37 @@ export const NOTIFICATION_TYPES = [
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
+
 export interface INotification extends mongoose.Document {
     _id:      Types.ObjectId
-    user:     Types.ObjectId   // المستلم
+    user:     Types.ObjectId 
     type:     NotificationType
     title:    string
     body:     string
     isRead:   boolean
-    task?:    Types.ObjectId
+    taskId?:  Types.ObjectId  
+    taskTitle?:  string           
+    clientName?: string
+    clientPhone?: string | undefined
+    clientEmail?: string | undefined         
+    dueDate?:    Date
     createdAt: Date
 }
 
 const NotificationSchema = new mongoose.Schema<INotification>(
     {
-        user:   { type: Types.ObjectId, ref: "User", required: true },
-        type:   { type: String, enum: NOTIFICATION_TYPES, required: true },
-        title:  { type: String, required: true },
-        body:   { type: String, required: true },
-        isRead: { type: Boolean, default: false },
-        task:   { type: Types.ObjectId, ref: "Task" },
+        user:        { type: Types.ObjectId, ref: "User",  required: true },
+        type:        { type: String, enum: NOTIFICATION_TYPES, required: true },
+        title:       { type: String, required: true },
+        body:        { type: String, required: true },
+        isRead:      { type: Boolean, default: false },
+        taskId:      { type: Types.ObjectId, ref: "Task" },
+        taskTitle:   { type: String },
+        clientName:  { type: String },
+        clientPhone:  { type: String },
+        clientEmail:  { type: String },
+        dueDate:     { type: Date },
+
     },
     { timestamps: true }
 )
