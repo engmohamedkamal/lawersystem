@@ -250,8 +250,22 @@ class LegalCaseService {
         const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
         if (!legalCase) throw new AppError("case not found", 404)
 
-        const { secure_url, public_id } = await uploadBuffer(req.file.buffer, `cases/${id}/attachments`)
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
+        const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+        const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
 
+        const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
+
+        const baseName = safeName.replace(/\.[^/.]+$/, "")
+        const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+        const finalPublicId = `${sanitizedBaseName}.${ext}`
+
+        const { secure_url, public_id } = await uploadBuffer(req.file.buffer,
+             `cases/${id}/attachments`,
+            resourceType,
+            finalPublicId
+        )
+        
         const updated = await LegalCaseModel.findByIdAndUpdate(
             id,
             {
@@ -259,7 +273,7 @@ class LegalCaseService {
                     attachments: {
                         url:        secure_url,
                         publicId:   public_id,
-                        name:       req.file.originalname,
+                        name:       safeName,
                         uploadedAt: new Date(),
                     },
                 },
