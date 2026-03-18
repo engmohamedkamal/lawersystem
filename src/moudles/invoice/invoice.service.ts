@@ -231,6 +231,11 @@ class invoiceService {
             throw new AppError("إجمالي الفاتورة يجب أن يكون أكبر من صفر", 400)
         }
 
+        if (paidAmount > total) {
+            throw new AppError(
+                `المبلغ المدفوع (${paidAmount}) لا يمكن أن يتجاوز إجمالي الفاتورة (${total})`,400)
+        }
+
         const invoiceNumber = await generateInvoiceNumber()
         const status        = resolveInvoiceStatus(paidAmount, total , dueDateP)
 
@@ -396,7 +401,6 @@ class invoiceService {
 
         return res.status(200).json({ message: "Invoice deleted successfully" })
     }
-
 
     printInvoice = async (req: Request, res: Response, next: NextFunction) => {
         const { invoiceId } = req.params

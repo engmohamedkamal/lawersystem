@@ -54,7 +54,7 @@ class DashboardService {
                 status:    "مجدولة",
                 startAt:   { $gte: now, $lte: nextWeek },
             })
-                .populate("case", "caseNumber status client")
+                .populate("legalCase", "caseNumber status client")
                 .populate("assignedTo", "UserName email")
                 .sort({ startAt: 1 })
                 .limit(10),

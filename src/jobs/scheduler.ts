@@ -5,7 +5,7 @@ import { sessionReminderJob } from "./Session.cron"
 
 export const startCronJobs = () => {
 
-    cron.schedule("* * * * *", async () => {
+    cron.schedule("*/5 * * * *", async () => {
         try {
             await completeExpiredAppointments()
         } catch (error) {

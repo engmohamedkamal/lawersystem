@@ -105,6 +105,95 @@ class sessionService {
         return res.status(201).json({ message: "Session created successfully", session: populated })
     }
 
+    getCaseSessions = async (req: Request, res: Response, next: NextFunction) => {
+        const { legalCaseId } = req.params
+        const { status, page = "1", limit = "10" } = req.query
+ 
+        const filter: any = { legalCase: legalCaseId, isDeleted: false }
+        if (status) filter.status = status
+ 
+        const pageNum  = Math.max(Number(page), 1)
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100)
+        const skip     = (pageNum - 1) * limitNum
+ 
+        const [sessions, total] = await Promise.all([
+            SessionModel.find(filter)
+                .populate("assignedTo", "UserName email phone")
+                .populate("team",       "UserName email")
+                .populate("createdBy",  "UserName email")
+                .sort({ startAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            SessionModel.countDocuments(filter),
+        ])
+ 
+        return res.status(200).json({
+            message: "success",
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            sessions,
+        })
+    }
+ 
+    getSessionById = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId } = req.params
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+            .populate("legalCase",  "caseNumber status client court city fees")
+            .populate("assignedTo", "UserName email phone ProfilePhoto")
+            .populate("team",       "UserName email phone ProfilePhoto")
+            .populate("createdBy",  "UserName email")
+ 
+        if (!session) throw new AppError("session not found", 404)
+ 
+        return res.status(200).json({ message: "success", session })
+    }
+ 
+    updateSession = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId } = req.params
+        const data          = req.body
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        if (!session) throw new AppError("session not found", 404)
+ 
+        if (session.status === "ملغية") throw new AppError("cannot update a cancelled session", 400)
+ 
+        if (data.startAt) data.startAt = new Date(data.startAt)
+        if (data.endAt)   data.endAt   = new Date(data.endAt)
+ 
+        const updated = await SessionModel.findByIdAndUpdate(
+            sessionId,
+            { $set: data },
+            { new: true }
+        )
+            .populate("legalCase",  "caseNumber status")
+            .populate("assignedTo", "UserName email phone")
+            .populate("team",       "UserName email")
+ 
+        return res.status(200).json({ message: "Session updated successfully", session: updated })
+    }
+ 
+    updateSessionStatus = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId }         = req.params
+        const { status, result, nextSessionAt } = req.body
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        if (!session) throw new AppError("session not found", 404)
+ 
+        const updateData: any = { status }
+        if (result)        updateData.result        = result
+        if (nextSessionAt) updateData.nextSessionAt = new Date(nextSessionAt)
+ 
+        const updated = await SessionModel.findByIdAndUpdate(
+            sessionId,
+            { $set: updateData },
+            { new: true }
+        )
+ 
+        return res.status(200).json({ message: "Status updated successfully", session: updated })
+    }
+
 
 
 
