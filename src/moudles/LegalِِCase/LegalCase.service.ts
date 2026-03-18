@@ -3,14 +3,13 @@ import LegalCaseModel, { calcPaymentStatus } from "../../DB/model/LegalCase.mode
 import { CreateCaseType , UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./LegalCase.validation";
 import { AppError } from "../../utils/classError";
 import ClientModel from "../../DB/model/client.model";
-import SessionModel from "../../DB/model/session.model";
 import { Role } from "../../DB/model/user.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
+import SessionModel from "../../DB/model/session.model";
 
 class LegalCaseService {
     constructor() {}
-
 
     createCase = async (req: Request, res: Response, next: NextFunction) => {
         const  caseData : CreateCaseType = req.body
@@ -115,7 +114,15 @@ class LegalCaseService {
             return res.status(200).json({ message: "success", case: caseData })
         }
 
-        return res.status(200).json({ message: "success", case: legalCase })
+        const sessions = await SessionModel.find({ 
+            legalCase: id, 
+            isDeleted: false 
+        })
+        .populate("assignedTo", "UserName email")
+        .populate("team", "UserName email")
+        .sort({ startAt: -1 })
+
+        return res.status(200).json({ message: "success", case: legalCase , sessions  })
     }
 
     updateCase = async (req: Request, res: Response, next: NextFunction) => {

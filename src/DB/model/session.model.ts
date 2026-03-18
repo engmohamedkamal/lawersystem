@@ -14,7 +14,6 @@ export interface ISessionAttachment {
 
 export interface ISession extends mongoose.Document {
   _id: Types.ObjectId;
-  case: Types.ObjectId;
   legalCase : Types.ObjectId;
   type: SessionType;
   startAt: Date;
@@ -45,7 +44,6 @@ const SessionAttachmentSchema = new mongoose.Schema<ISessionAttachment>(
 
 const SessionSchema = new mongoose.Schema<ISession>(
   {
-    case: { type: Types.ObjectId, ref: "CaseType", required: true },
     legalCase:{ type: Types.ObjectId , ref: "LegalCase" , required: true},
     type: { type: String, enum: SESSION_TYPES,    default: "جلسة محكمة", required: true },
     startAt: { type: Date, required: true },
