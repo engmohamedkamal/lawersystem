@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import LegalCaseModel, { calcPaymentStatus } from "../../DB/model/LegalCase.model";
-import { CreateCaseType, UpdateCaseStatusType, UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./LegalCase.validation";
+import { CreateCaseType , UpdateCaseType, UpdateFeesType, UpdateTeamType } from "./LegalCase.validation";
 import { AppError } from "../../utils/classError";
 import ClientModel from "../../DB/model/client.model";
 import SessionModel from "../../DB/model/session.model";
@@ -13,7 +13,7 @@ class LegalCaseService {
 
 
     createCase = async (req: Request, res: Response, next: NextFunction) => {
-        const { initialSession, ...caseData }: CreateCaseType = req.body
+        const  caseData : CreateCaseType = req.body
 
         const existing = await LegalCaseModel.findOne({ caseNumber: caseData.caseNumber })
         if (existing) throw new AppError("case number already exists", 409)
@@ -27,17 +27,9 @@ class LegalCaseService {
         }
 
         const legalCase = await LegalCaseModel.create({
-            ...caseData,
+            caseData,
             createdBy: req.user?.id,
         })
-
-        if (initialSession) {
-            await SessionModel.create({
-                ...initialSession,
-                case: legalCase._id,
-                createdBy: req.user?.id,
-            })
-        }
 
         const populated = await LegalCaseModel.findById(legalCase._id)
             .populate("client", "fullName phone type")
@@ -148,40 +140,6 @@ class LegalCaseService {
         return res.status(200).json({ message: "Case updated successfully", case: updated })
     }
 
-    updateCaseStatus = async (req: Request, res: Response, next: NextFunction) => {
-        const { id }                           = req.params
-        const { status }: UpdateCaseStatusType = req.body
-
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
-        if (!legalCase) throw new AppError("case not found", 404)
-
-        const isClosed   = status === "منتهية" || status === "مؤرشفة"
-        const isReopened = status === "قيد التحضير" || status === "قيد التنفيذ" || status === "موقوفة"
-
-        let updated
-        if (isClosed) {
-            updated = await LegalCaseModel.findByIdAndUpdate(
-                id,
-                { $set: { status, closedAt: legalCase.closedAt || new Date() } },
-                { returnDocument: "after" }
-            )
-        } else if (isReopened) {
-            updated = await LegalCaseModel.findByIdAndUpdate(
-                id,
-                { $set: { status }, $unset: { closedAt: 1 } },
-                { returnDocument: "after" }
-            )
-        } else {
-            updated = await LegalCaseModel.findByIdAndUpdate(
-                id,
-                { $set: { status } },
-                { returnDocument: "after" }
-            )
-        }
-
-        return res.status(200).json({ message: "Status updated successfully", case: updated })
-    }
-
     updateFees = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
         const data: UpdateFeesType = req.body
@@ -265,7 +223,7 @@ class LegalCaseService {
             resourceType,
             finalPublicId
         )
-        
+
         const updated = await LegalCaseModel.findByIdAndUpdate(
             id,
             {

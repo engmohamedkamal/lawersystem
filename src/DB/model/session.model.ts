@@ -5,9 +5,17 @@ export const SESSION_STATUSES = ["مجدولة", "تمت", "مؤجلة", "ملغ
 export type SessionType   = (typeof SESSION_TYPES)[number];
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
+export interface ISessionAttachment {
+    url:        string
+    publicId:   string
+    name:       string
+    uploadedAt: Date
+}
+
 export interface ISession extends mongoose.Document {
   _id: Types.ObjectId;
   case: Types.ObjectId;
+  legalCase : Types.ObjectId;
   type: SessionType;
   startAt: Date;
   endAt?: Date;
@@ -15,19 +23,30 @@ export interface ISession extends mongoose.Document {
   courtName?: string;
   city?: string;
   circuit?: string;
-  result?: string;
-  nextSessionAt?: Date;
   notes?: string;
-  assignedTo?: Types.ObjectId;
+  assignedTo: Types.ObjectId;
+  attachments: ISessionAttachment[]
+  team: Types.ObjectId;
   createdBy: Types.ObjectId;
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: Types.ObjectId;
 }
 
+const SessionAttachmentSchema = new mongoose.Schema<ISessionAttachment>(
+    {
+        url:        { type: String, required: true },
+        publicId:   { type: String, required: true },
+        name:       { type: String, required: true },
+        uploadedAt: { type: Date,   default: Date.now },
+    },
+    { _id: false }
+)
+
 const SessionSchema = new mongoose.Schema<ISession>(
   {
-    case: { type: Types.ObjectId, ref: "CaseType", required: true }, 
+    case: { type: Types.ObjectId, ref: "CaseType", required: true },
+    legalCase:{ type: Types.ObjectId , ref: "LegalCase" , required: true},
     type: { type: String, enum: SESSION_TYPES,    default: "جلسة محكمة", required: true },
     startAt: { type: Date, required: true },
     endAt: { type: Date },
@@ -35,15 +54,15 @@ const SessionSchema = new mongoose.Schema<ISession>(
     city: { type: String, trim: true, maxLength: 100 },
     courtName: { type: String, trim: true, maxLength: 200 },
     circuit: { type: String, trim: true, maxLength: 200 },
-    result: { type: String, trim: true, maxLength: 4000 },
-    nextSessionAt:{ type: Date },
     notes: { type: String, trim: true, maxLength: 4000 },
-    assignedTo: { type: Types.ObjectId, ref: "User" },
+    assignedTo: { type: Types.ObjectId, ref: "User" , required: true },
+    team: { type: Types.ObjectId, ref: "User"},
+    attachments: { type: [SessionAttachmentSchema], default: [] },
     createdBy: { type: Types.ObjectId, ref: "User", required: true },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
     deletedBy: { type: Types.ObjectId, ref: "User" },
-  },  {
+  },{
     timestamps: true,
     toObject: { virtuals: true },
     toJSON:   { virtuals: true },

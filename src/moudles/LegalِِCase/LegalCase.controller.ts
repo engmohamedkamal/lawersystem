@@ -47,14 +47,6 @@ LegalCaseRouter.put(
 )
 
 LegalCaseRouter.patch(
-    "/:id/status",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF),
-    validation(CV.updateCaseStatusSchema),
-    CS.updateCaseStatus
-);
-
-LegalCaseRouter.patch(
     "/:id/fees",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),

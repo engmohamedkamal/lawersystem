@@ -19,6 +19,8 @@ export interface IUser extends mongoose.Document{
     role:Role,
     phone:number,
     department : string,
+    salary : number,
+    shift?: Types.ObjectId
     isDeleted:Boolean,
     deletedBy:Types.ObjectId,
     deletedAt:Date,
@@ -39,6 +41,8 @@ const UserSchema = new mongoose.Schema<IUser>({
     role : {type : String , default : Role.STAFF},
     phone : {type : Number , required : true},
     department : { type : String},
+    salary : { type : Number , default : 0},
+    shift:  { type: Types.ObjectId, ref: "Shift" },
     isDeleted: { type: Boolean, default: false },
     deletedBy: { type: mongoose.Types.ObjectId, ref: "User" },
     deletedAt: { type: Date },

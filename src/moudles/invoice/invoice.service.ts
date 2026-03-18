@@ -128,11 +128,16 @@ class invoiceService {
     constructor() {}
 
     createInvoice = async (req: Request, res: Response, next: NextFunction) => {
-        const { id } = req.params as { id: string }
-        const data: CreateInvoiceType = req.body
+        const { id } = req.params as { id?: string }
+        const data: CreateInvoiceType & { legalCase?: string; caseId?: string } = req.body
+
+        const caseId = id || data.legalCase || data.caseId
+        if (!caseId) {
+            throw new AppError("يجب تحديد القضية", 400)
+        }
 
         const legalCase = await (LegalCaseModel as any)
-            .findOne({ _id: id, isDeleted: false })
+            .findOne({ _id: caseId, isDeleted: false })
             .populate("client", "fullName phone email address type")
         if (!legalCase) throw new AppError("case not found", 404)
 
@@ -159,7 +164,7 @@ class invoiceService {
 
         if (isFromFees && paidAmount > 0) {
             const caseTotal    = legalCase.fees?.totalAmount ?? 0
-            const existingPaid = await getCaseFeesPaidFromInvoices(id)
+            const existingPaid = await getCaseFeesPaidFromInvoices(caseId)
             if (caseTotal > 0 && existingPaid + paidAmount > caseTotal) {
                 throw new AppError(
                     `المبلغ المدفوع (${existingPaid + paidAmount}) سيتجاوز إجمالي الأتعاب (${caseTotal})`,
@@ -173,7 +178,7 @@ class invoiceService {
 
         const invoice = await InvoiceModel.create({
             invoiceNumber,
-            legalCase:     id,
+            legalCase:     caseId,
             client:        clientId,
             items,
             subtotal,
@@ -192,10 +197,10 @@ class invoiceService {
 
         if (paidAmount > 0) {
             if (isFromFees) {
-                await syncCaseFees(id)
+                await syncCaseFees(caseId)
             } else {
                 await addExtraPayment(
-                    id, clientId, invoice._id,
+                    caseId, clientId, invoice._id,
                     paidAmount, items,
                     buildPaymentDescription(items, paidAmount),
                     data.paymentMethod

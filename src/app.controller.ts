@@ -23,6 +23,7 @@ import { createServer } from "http"
 import taskRouter from "./moudles/task/task.controller"
 import DashboardRouter from "./moudles/Dashboard/Dashboard.controller"
 import archiveRouter from "./moudles/Archive/Archive.controller"
+import sessionRouter from "./moudles/Session/session.controller"
 
 
 
@@ -66,6 +67,7 @@ const bootStrap = ()=>{
     app.use("/task", taskRouter);
     app.use("/Dashboard", DashboardRouter); 
     app.use("/Archive", archiveRouter); 
+    app.use("/session", sessionRouter); 
     
     
     connectionDB()

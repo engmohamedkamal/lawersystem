@@ -56,7 +56,7 @@ export const updateCaseSchema = {
     body: z.object({
         caseNumber:  z.string().trim().min(1).optional(),
         caseType:    z.string().optional(),
-        client:      z.string().optional(),               // ✅ ObjectId
+        client:      z.string().optional(),
         priority:    z.enum([...CASE_PRIORITIES] as [string, ...string[]]).optional(),
         openedAt:    z.coerce.date().optional(),
         closedAt:    z.coerce.date().optional(),
@@ -64,15 +64,6 @@ export const updateCaseSchema = {
         city:        z.string().trim().max(100).optional(),
         description: z.string().trim().max(4000).optional(),
         assignedTo:  z.string().optional(),
-    }),
-}
-
-export const updateCaseStatusSchema = {
-    params: z.object({ id: z.string().min(1) }),
-    body: z.object({
-        status: z.enum([...CASE_STATUSES] as [string, ...string[]], {
-            error: `status must be one of: ${CASE_STATUSES.join(", ")}`,
-        }),
     }),
 }
 
@@ -89,7 +80,6 @@ export const updateTeamSchema = {
 }
 
 export type UpdateFeesType = z.infer<typeof updateFeesSchema.body>
-export type UpdateCaseStatusType = z.infer<typeof updateCaseStatusSchema.body>
 export type UpdateCaseType = z.infer<typeof updateCaseSchema.body>
 export type CreateCaseType = z.infer<typeof createCaseSchema.body>
 export type UpdateTeamType = z.infer<typeof updateTeamSchema.body>
