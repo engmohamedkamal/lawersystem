@@ -73,5 +73,12 @@ sessionRouter.delete(
     SS.deleteSession
 )
 
+sessionRouter.get(
+    "/lawyer/:userId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    SS.getLawyerSessions
+)
+
 
 export default sessionRouter

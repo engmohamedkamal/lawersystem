@@ -12,7 +12,7 @@ const DashboardRouter = Router()
 DashboardRouter.get(
     "/",
     authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
     DS.getStats
 )
 
