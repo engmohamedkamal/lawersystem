@@ -4,6 +4,9 @@ import { AppError } from "../../utils/classError";
 import { sendNotification } from "../task/notification.service";
 import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
+import cloudinary from "../../utils/cloudInary";
+import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import mongoose from "mongoose";
 
 const notifySessionParticipants = async (
     session:    any,
@@ -109,7 +112,15 @@ class sessionService {
         const { legalCaseId } = req.params
         const { status, page = "1", limit = "10" } = req.query
  
-        const filter: any = { legalCase: legalCaseId, isDeleted: false }
+        const legalCase = await LegalCaseModel.findOne({
+            _id:legalCaseId,
+            isDeleted: false
+        })
+
+        if(!legalCase)throw new AppError("case not found", 404)
+
+        const filter: any = { legalCase: legalCaseId , isDeleted: false}
+
         if (status) filter.status = status
  
         const pageNum  = Math.max(Number(page), 1)
@@ -140,14 +151,21 @@ class sessionService {
         const { sessionId } = req.params
  
         const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
-            .populate("legalCase",  "caseNumber status client court city fees")
+            .populate("legalCase",  "caseNumber status client court city")
             .populate("assignedTo", "UserName email phone ProfilePhoto")
             .populate("team",       "UserName email phone ProfilePhoto")
             .populate("createdBy",  "UserName email")
  
         if (!session) throw new AppError("session not found", 404)
+
+        const sessionObj = session.toObject();
+
+        if (sessionObj.legalCase) {
+          delete sessionObj.legalCase.fees;
+          delete sessionObj.legalCase.totalPaidAll;
+        }
  
-        return res.status(200).json({ message: "success", session })
+        return res.status(200).json({ message: "success", session : sessionObj })
     }
  
     updateSession = async (req: Request, res: Response, next: NextFunction) => {
@@ -175,14 +193,14 @@ class sessionService {
     }
  
     updateSessionStatus = async (req: Request, res: Response, next: NextFunction) => {
-        const { sessionId }         = req.params
+        const { sessionId } = req.params
         const { status, result, nextSessionAt } = req.body
  
         const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
         if (!session) throw new AppError("session not found", 404)
  
         const updateData: any = { status }
-        if (result)        updateData.result        = result
+        if (result) updateData.result        = result
         if (nextSessionAt) updateData.nextSessionAt = new Date(nextSessionAt)
  
         const updated = await SessionModel.findByIdAndUpdate(
@@ -192,6 +210,120 @@ class sessionService {
         )
  
         return res.status(200).json({ message: "Status updated successfully", session: updated })
+    }
+
+    uploadAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId } = req.params
+        if (!req.file) throw new AppError("No file uploaded", 400)
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        if (!session) throw new AppError("session not found", 404)
+ 
+        const ext     = req.file.originalname.split(".").pop()?.toLowerCase() || ""
+        const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+        const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+
+        const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
+
+        const baseName = safeName.replace(/\.[^/.]+$/, "")
+        const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+        const finalPublicId = `${sanitizedBaseName}.${ext}`
+ 
+        const { secure_url, public_id } = await uploadBuffer(req.file.buffer,
+            `sessions/${sessionId}/attachments`,
+            resourceType,
+            finalPublicId
+        )
+ 
+    
+        const updated = await SessionModel.findByIdAndUpdate(
+            sessionId,
+            {
+                $push: {
+                    attachments: {
+                        url:        secure_url,
+                        publicId:   public_id,
+                        name:       safeName,
+                        uploadedAt: new Date(),
+                    }
+                }
+            },
+            { new: true }
+        )
+ 
+        return res.status(200).json({ message: "Attachment uploaded successfully", session: updated })
+    }
+ 
+    deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId } = req.params
+        const { publicId }  = req.body
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        if (!session) throw new AppError("session not found", 404)
+ 
+        const attachment = session.attachments.find(
+            (a: any) => a.publicId === decodeURIComponent(publicId)
+        )
+        if (!attachment) throw new AppError("attachment not found", 404)
+ 
+        await cloudinary.uploader.destroy(attachment.publicId)
+ 
+        const updated = await SessionModel.findByIdAndUpdate(
+            sessionId,
+            { $pull: { attachments: { publicId: attachment.publicId } } },
+            { new: true }
+        )
+ 
+        return res.status(200).json({ message: "Attachment deleted successfully", session: updated })
+    }
+ 
+    deleteSession = async (req: Request, res: Response, next: NextFunction) => {
+        const { sessionId } = req.params
+ 
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        if (!session) throw new AppError("session not found", 404)
+ 
+        await SessionModel.findByIdAndUpdate(sessionId, {
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletedBy: req.user?.id,
+        })
+ 
+        return res.status(200).json({ message: "Session deleted successfully" })
+    }
+ 
+    getLawyerSessions = async (req: Request, res: Response, next: NextFunction) => {
+        const { userId } = req.params
+        const { status, page = "1", limit = "10" } = req.query
+ 
+        const filter: any = {
+            isDeleted: false,
+            $or: [{ assignedTo: userId }, { team: userId }],
+        }
+        if (status) filter.status = status
+ 
+        const pageNum  = Math.max(Number(page), 1)
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100)
+        const skip     = (pageNum - 1) * limitNum
+ 
+        const [sessions, total] = await Promise.all([
+            SessionModel.find(filter)
+                .populate("legalCase",  "caseNumber status client")
+                .populate("assignedTo", "UserName email")
+                .populate("team",       "UserName email")
+                .sort({ startAt: 1 })
+                .skip(skip)
+                .limit(limitNum),
+            SessionModel.countDocuments(filter),
+        ])
+ 
+        return res.status(200).json({
+            message: "success",
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            sessions,
+        })
     }
 
 

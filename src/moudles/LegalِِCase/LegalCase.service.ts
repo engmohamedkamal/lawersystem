@@ -26,7 +26,7 @@ class LegalCaseService {
         }
 
         const legalCase = await LegalCaseModel.create({
-            caseData,
+            ...caseData,
             createdBy: req.user?.id,
         })
 

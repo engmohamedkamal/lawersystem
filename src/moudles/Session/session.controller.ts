@@ -18,5 +18,60 @@ sessionRouter.post(
     SS.createSession
 )
 
+sessionRouter.get(
+    "/case/:legalCaseId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+    validation(SV.caseSessionsSchema),
+    SS.getCaseSessions
+)
+
+sessionRouter.get(
+    "/:sessionId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+    validation(SV.sessionParamsSchema),
+    SS.getSessionById
+)
+ 
+sessionRouter.patch(
+    "/:sessionId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(SV.updateSessionSchema),
+    SS.updateSession
+)
+
+sessionRouter.patch(
+    "/:sessionId/status",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    validation(SV.updateStatusSchema),
+    SS.updateSessionStatus
+)
+
+sessionRouter.post(
+    "/:sessionId/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles], fileSizeMB: 10 }).single("file"),
+    SS.uploadAttachment
+)
+ 
+sessionRouter.delete(
+    "/:sessionId/attachments",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    SS.deleteAttachment
+)
+ 
+sessionRouter.delete(
+    "/:sessionId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(SV.sessionParamsSchema),
+    SS.deleteSession
+)
+
 
 export default sessionRouter
