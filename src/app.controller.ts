@@ -24,6 +24,7 @@ import taskRouter from "./moudles/task/task.controller"
 import DashboardRouter from "./moudles/Dashboard/Dashboard.controller"
 import archiveRouter from "./moudles/Archive/Archive.controller"
 import sessionRouter from "./moudles/Session/session.controller"
+import CalendarRouter from "./moudles/Calendar/Calendar.controller"
 
 
 
@@ -68,6 +69,7 @@ const bootStrap = ()=>{
     app.use("/Dashboard", DashboardRouter); 
     app.use("/Archive", archiveRouter); 
     app.use("/session", sessionRouter); 
+    app.use("/calendar" , CalendarRouter)
     
     
     connectionDB()
@@ -89,7 +91,7 @@ const bootStrap = ()=>{
         return res.status(err.cause as unknown as number || 500).json({message:err.message , stack:err.stack})
     })
 
-    app.listen(port,"0.0.0.0",()=>{
+    httpServer.listen(port,"0.0.0.0",()=>{
         console.log(`server is running on port ${port} `);
         
     })

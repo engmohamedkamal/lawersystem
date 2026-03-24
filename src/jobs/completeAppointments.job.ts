@@ -16,4 +16,4 @@ export const completeExpiredAppointments = async () => {
   if (result.modifiedCount > 0) {
     console.log(`[CRON] Completed ${result.modifiedCount} appointments at ${now.toISOString()}`);
   }
-};
+}

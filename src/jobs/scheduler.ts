@@ -6,12 +6,16 @@ import { sessionReminderJob } from "./Session.cron"
 export const startCronJobs = () => {
 
     cron.schedule("*/5 * * * *", async () => {
-        try {
-            await completeExpiredAppointments()
-        } catch (error) {
-            console.error("[CRON ERROR]", error)
+    try {
+        await completeExpiredAppointments()
+    } catch (error: any) {
+        if (error.name === "MongoServerSelectionError") {
+            console.warn("[CRON] DB unavailable, skipping")
+            return
         }
-    })
+        console.error("[CRON ERROR]", error)
+    }
+})
 
     cron.schedule("0 * * * *", async () => {
         try {
