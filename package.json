@@ -15,7 +15,7 @@
   "keywords": [],
   "author": "",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "license": "ISC",
   "type": "commonjs",
