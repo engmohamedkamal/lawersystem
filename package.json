@@ -8,10 +8,14 @@
     "start": "node dist/index.js",
     "start:dev": "concurrently \"tsc --watch\" \"nodemon --watch dist dist/index.js\""
   },
+  "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "./src"
+    },
   "keywords": [],
   "author": "",
   "engines": {
-    "node": " 20.x"
+    "node": "20.x"
   },
   "license": "ISC",
   "type": "commonjs",

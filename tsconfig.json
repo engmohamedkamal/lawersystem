@@ -9,13 +9,14 @@
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "target": "esnext",
     "types": [],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
-    // and npm install -D @types/node
+    // and npm install -D @types/nodea
 
     "removeComments": true,
 
@@ -38,7 +39,7 @@
 
     // Recommended Options
     "strict": true,
-    "jsx": "react-jsx",
+    // "jsx": "react-jsx",
     "verbatimModuleSyntax": false,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
