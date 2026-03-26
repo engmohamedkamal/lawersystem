@@ -28,6 +28,7 @@ taskRouter.post(
     "/",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles] }).single("file"),
     validation(TV.createTaskSchema),
     TS.createTask
 )
@@ -45,6 +46,12 @@ taskRouter.get(
     authentication(TokenType.access),
     TS.getTaskById
 )
+
+taskRouter.get(
+    "/",
+    authentication(TokenType.access),
+    TS.getTasks
+)
  
 taskRouter.patch(
     "/:taskId",
@@ -61,20 +68,6 @@ taskRouter.patch(
     TS.updateTaskStatus
 )
 
-taskRouter.post(
-    "/:taskId/attachments",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF),
-    MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles] }).single("file"),
-    TS.uploadAttachment
-)
- 
-taskRouter.delete(
-    "/:taskId/attachments",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF),
-    TS.deleteAttachment
-)
 
 taskRouter.delete(
     "/:taskId",

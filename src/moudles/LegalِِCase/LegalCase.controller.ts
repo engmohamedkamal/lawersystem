@@ -10,8 +10,6 @@ import invoiceRouter from "../invoice/invoice.controller";
 import  CS from "./LegalCase.service";
 
 
-
-
 const LegalCaseRouter = Router({ mergeParams: true });
 LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 

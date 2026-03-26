@@ -6,20 +6,23 @@ import { sendNotification } from "./notification.service";
 import ClientModel from "../../DB/model/client.model";
 import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
-import cloudinary from "../../utils/cloudInary";
-
 class taskService {
   constructor() {}
 
   createTask = async (req: Request, res: Response, next: NextFunction) => {
         const { title, description, assignedTo, client, legalCase, priority, dueDate } = req.body
  
-        const [lawyer, clientDoc] = await Promise.all([
-            UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER }),
-            ClientModel.findOne({ _id: client, isDeleted: false }),
-        ])
-        if (!lawyer)    throw new AppError("المحامي غير موجود", 404)
-        if (!clientDoc) throw new AppError("العميل غير موجود", 404)
+        const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER })
+             if (!lawyer) throw new AppError("المحامي غير موجود", 404)
+
+             let clientDoc = null
+             if (client) {
+                 clientDoc = await ClientModel.findOne({ _id: client, isDeleted: false })
+                 if (!clientDoc) throw new AppError("العميل غير موجود", 404)
+             }
+
+
+        const attachments: { url: string; publicId: string; name: string }[] = []
  
         const task = await TaskModel.create({
             title,
@@ -30,12 +33,40 @@ class taskService {
             legalCase:  legalCase ?? undefined,
             priority,
             dueDate:    dueDate ? new Date(dueDate) : undefined,
+            attachments
         })
+
+        if (req.file) {
+           const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
+           const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+           const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+
+           const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
+
+           const baseName = safeName.replace(/\.[^/.]+$/, "")
+           const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+           const finalPublicId = `${sanitizedBaseName}.${ext}`
+
+           const { secure_url, public_id } = await uploadBuffer(
+             req.file.buffer,
+             `tasks/${task._id}/attachments`,
+             resourceType,
+             finalPublicId
+           )
+
+           task.attachments.push({
+             url: secure_url,
+             publicId: public_id,
+             name: safeName,
+           } as any)
+
+           await task.save()
+        }       
  
         const populated = await TaskModel.findById(task._id)
             .populate("assignedTo", "UserName email ProfilePhoto")
             .populate("assignedBy", "UserName email")
-            .populate("client",     "fullName phone type")
+            .populate("client", "fullName phone type")
             .populate("legalCase",  "caseNumber status")
  
         const dueDateFormatted = dueDate
@@ -46,7 +77,7 @@ class taskService {
             userId:      assignedTo,
             type:        "task_assigned",
             title:       "مهمة جديدة",
-            body:        `تم تكليفك بمهمة: ${title} — العميل: ${clientDoc.fullName}${dueDateFormatted ? ` — الموعد: ${dueDateFormatted}` : ""}`,
+            body:        `تم تكليفك بمهمة: ${title}${clientDoc ? ` — العميل: ${clientDoc.fullName}` : ""}${dueDateFormatted ? ` — الموعد: ${dueDateFormatted}` : ""}`,
             taskId:      task._id,
             taskTitle:   title,
             clientName:  clientDoc.fullName,
@@ -193,7 +224,7 @@ class taskService {
  
         return res.status(200).json({ message: "Task updated successfully", task: updated })
     }
- 
+
   updateTaskStatus = async (req: Request, res: Response, next: NextFunction) => {
         const taskId  = req.params.taskId as string
         const { status } = req.body
@@ -226,63 +257,6 @@ class taskService {
         return res.status(200).json({ message: "Status updated successfully", task: updated })
     }
 
-  uploadAttachment = async (req: Request, res: Response, next: NextFunction) => {
-        const taskId = req.params.taskId as string
-        if (!req.file) throw new AppError("No file uploaded", 400)
- 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
-        if (!task) throw new AppError("المهمة غير موجودة", 404)
- 
-        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
-        const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
-        const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
- 
-        const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
-
-        const baseName = safeName.replace(/\.[^/.]+$/, "")
-        const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
-        const finalPublicId = `${sanitizedBaseName}.${ext}`
-
-        const { secure_url, public_id } = await uploadBuffer(
-            req.file.buffer,
-            `tasks/${taskId}/attachments`,
-            resourceType,
-            finalPublicId
-        )
- 
-
-        const updated = await TaskModel.findByIdAndUpdate(
-            taskId,
-            { $push: { attachments: { url: secure_url, publicId: public_id, name: safeName } } },
-            { new: true }
-        )
- 
-        return res.status(200).json({ message: "Attachment uploaded successfully", task: updated })
-    }
-
-  deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
-        const taskId = req.params.taskId as string
-        const { publicId } = req.body
- 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
-        if (!task) throw new AppError("المهمة غير موجودة", 404)
- 
-        const attachment = task.attachments.find(
-            (a: { publicId: string }) => a.publicId === decodeURIComponent(publicId)
-        )
-        if (!attachment) throw new AppError("المستند غير موجود", 404)
- 
-        await cloudinary.uploader.destroy(attachment.publicId)
- 
-        const updated = await TaskModel.findByIdAndUpdate(
-            taskId,
-            { $pull: { attachments: { publicId: attachment.publicId } } },
-            { new: true }
-        )
- 
-        return res.status(200).json({ message: "Attachment deleted successfully", task: updated })
-    }
-
   deleteTask = async (req: Request, res: Response, next: NextFunction) => {
         const taskId = req.params.taskId as string
  
@@ -306,7 +280,7 @@ class taskService {
  
         return res.status(200).json({ message: "success", unreadCount, notifications })
     }
- 
+
   markNotificationsRead = async (req: Request, res: Response, next: NextFunction) => {
         const userId = req.user?.id
  
@@ -318,7 +292,7 @@ class taskService {
         return res.status(200).json({ message: "Notifications marked as read" })
     }
 
-  
+
 }
 
 export default new taskService();

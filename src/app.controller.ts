@@ -25,6 +25,7 @@ import DashboardRouter from "./moudles/Dashboard/Dashboard.controller"
 import archiveRouter from "./moudles/Archive/Archive.controller"
 import sessionRouter from "./moudles/Session/session.controller"
 import CalendarRouter from "./moudles/Calendar/Calendar.controller"
+import PayrollRouter from "./moudles/Payroll/Payroll.controller"
 
 
 
@@ -70,6 +71,7 @@ const bootStrap = ()=>{
     app.use("/Archive", archiveRouter); 
     app.use("/session", sessionRouter); 
     app.use("/calendar" , CalendarRouter)
+    app.use("/payroll", PayrollRouter)
     
     
     connectionDB()

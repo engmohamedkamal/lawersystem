@@ -11,7 +11,7 @@ class usersService {
     constructor(){}
 
     addUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
-         const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role ,department}: addUsersByAdminSchemaType = req.body;
+         const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role ,department , salary ,leavingDate }: addUsersByAdminSchemaType = req.body;
 
          if (await UserModel.findOne({ email })) {
            throw new AppError("email already exist", 409);
@@ -35,6 +35,8 @@ class usersService {
            lawyerRegistrationNo,
            role,
            department,
+           salary,
+           leavingDate,
            ...(profilePhoto ? { ProfilePhoto: profilePhoto } : {}),
          });
 
@@ -44,15 +46,15 @@ class usersService {
         };
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {
-           const { role } = req.query as unknown as getUsersSchemaType ;
+           const { role , includeDeleted, includeInactive } = req.query as unknown as getUsersSchemaType ;
 
            const filter: any = {};
 
-           if (role) {
-             filter.role = role;
-           }
+           if (role) {filter.role = role;}
+           if (!includeDeleted) filter.isDeleted = false
+           if (!includeInactive) filter.isActiveEmployee = true
 
-           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt isDeleted ");
+           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto createdAt updatedAt isDeleted ");
 
            return res.status(200).json({ message: "done", users });
         };
@@ -60,7 +62,7 @@ class usersService {
     getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as getUserByIdParamsType
 
-        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department ProfilePhoto createdAt updatedAt isDeleted ")
+        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto createdAt updatedAt isDeleted ")
 
         if (!user) {
             throw new AppError("user not found" , 404)
@@ -82,11 +84,21 @@ class usersService {
             body.password = await HASH(body.password)
         }
 
+        if (body.leavingDate) {
+          body.isActiveEmployee = false
+        }
+
+        if (body.leavingDate === null) {
+          ;(body as any).$unset = { leavingDate: 1 }
+          delete body.leavingDate
+          body.isActiveEmployee = true
+        }
+
         const user = await UserModel.findByIdAndUpdate(
             userId,
             {$set : body},
             { returnDocument: "after", runValidators: true }
-        ).select("UserName, email, phone, jobTitle, department, role, lawyerRegistrationNo, permissions, password");
+        ).select("UserName email phone jobTitle department role lawyerRegistrationNo permissions salary employmentDate leavingDate isActiveEmployee");
 
         if (!user) {
             throw new AppError("user not found", 404)

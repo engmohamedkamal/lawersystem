@@ -29,7 +29,7 @@ const TaskSchema = new mongoose.Schema<ITask>(
         description: { type: String, trim: true, maxlength: 2000 },
         assignedTo:  { type: Types.ObjectId, ref: "User", required: true },
         assignedBy:  { type: Types.ObjectId, ref: "User", required: true },
-        client:      {type : Types.ObjectId , ref: "Client", required: true},
+        client:      {type : Types.ObjectId , ref: "Client"},
         legalCase:   { type: Types.ObjectId, ref: "LegalCase" },
         status:      { type: String, enum: TASK_STATUSES,   default: "قيد التنفيذ" },
         priority:    { type: String, enum: TASK_PRIORITIES, default: "متوسطة" },

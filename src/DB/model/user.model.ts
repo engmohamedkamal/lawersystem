@@ -20,6 +20,9 @@ export interface IUser extends mongoose.Document{
     phone:number,
     department : string,
     salary : number,
+    employmentDate: Date
+    leavingDate?: Date
+    isActiveEmployee: boolean
     shift?: Types.ObjectId
     isDeleted:Boolean,
     deletedBy:Types.ObjectId,
@@ -42,6 +45,9 @@ const UserSchema = new mongoose.Schema<IUser>({
     phone : {type : Number , required : true},
     department : { type : String},
     salary : { type : Number , default : 0},
+    employmentDate: {type: Date, default: Date.now , required: true , immutable: true},
+    leavingDate: {type: Date,},
+    isActiveEmployee: {type: Boolean,default: true,},
     shift:  { type: Types.ObjectId, ref: "Shift" },
     isDeleted: { type: Boolean, default: false },
     deletedBy: { type: mongoose.Types.ObjectId, ref: "User" },
@@ -49,6 +55,12 @@ const UserSchema = new mongoose.Schema<IUser>({
 },{timestamps : true,
     toObject : {virtuals : true},
     toJSON : {virtuals : true}})
+
+    UserSchema.pre("save", function () {
+   if (this.leavingDate) {
+    this.isActiveEmployee = false
+   }
+  })
 
 
     const UserModel = mongoose.models.User || mongoose.model<IUser>( "User" ,UserSchema ) 

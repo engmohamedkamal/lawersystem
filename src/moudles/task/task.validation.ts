@@ -21,7 +21,7 @@ export const updateTaskSchema = {
         title:       z.string().min(2).max(300).optional(),
         description: z.string().max(2000).optional(),
         assignedTo:  z.string().length(24).optional(),
-        client:      z.string().length(24).optional(),
+        client:      z.string().length(24),
         legalCase:   z.string().length(24).optional(),
         priority:    z.enum([...TASK_PRIORITIES] as [string, ...string[]]).optional(),
         status:      z.enum([...TASK_STATUSES]   as [string, ...string[]]).optional(),
