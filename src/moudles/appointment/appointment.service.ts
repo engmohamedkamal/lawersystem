@@ -92,11 +92,15 @@ class AppointmentService {
         if (caseType)    filter.caseType    = caseType
         if (handledBy)   filter.handledBy   = handledBy
 
+        const now = new Date()
+        const startOfYear = new Date(now.getFullYear(), 0, 1)
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
         const pageNum  = Math.max(Number(page), 1)
         const limitNum = Math.min(Math.max(Number(limit), 1), 100)
         const skip     = (pageNum - 1) * limitNum
 
-        const [appointments, total] = await Promise.all([
+        const [appointments, total , thisYear, thisMonth, confirmed, cancelled] = await Promise.all([
             AppointmentModel.find(filter)
                 .populate("slot",      "startAt endAt status")
                 .populate("caseType",  "name")
@@ -105,10 +109,20 @@ class AppointmentService {
                 .skip(skip)
                 .limit(limitNum),
             AppointmentModel.countDocuments(filter),
+            AppointmentModel.countDocuments({ createdAt: { $gte: startOfYear } }),
+            AppointmentModel.countDocuments({ createdAt: { $gte: startOfMonth } }),
+            AppointmentModel.countDocuments({ status: "CONFIRMED" }),
+            AppointmentModel.countDocuments({ status: "CANCELLED" }),
         ])
 
         return res.status(200).json({
-            message:    "success",
+            message: "success",
+            stats: {
+            thisYear,
+            thisMonth,
+            confirmed,
+            cancelled,
+            },
             total,
             page:       pageNum,
             totalPages: Math.ceil(total / limitNum),

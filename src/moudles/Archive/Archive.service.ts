@@ -16,7 +16,7 @@ class ArchiveService {
   getDocuments = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const role = req.user?.role
-      const userId = req.user?.id
+      const userId = req.user?._id  
       const {
         source,
         search,
@@ -34,7 +34,9 @@ class ArchiveService {
       const limitNum = Math.min(Math.max(Number(limit), 1), 100)
 
       const docs: any[] = []
+      const isAdmin  = role === Role.ADMIN
       const isLawyer = role === Role.LAWYER
+      const isStaff  = role === Role.STAFF
 
       if (!source || source === "case") {
         const caseFilter: any = {
@@ -101,7 +103,7 @@ class ArchiveService {
           "attachments.0": { $exists: true },
         }
 
-        if (isLawyer) taskFilter.assignedTo = userId
+        if (isLawyer || isStaff) taskFilter.assignedTo = userId
 
         const tasks = await TaskModel.find(taskFilter)
           .select("title attachments client")

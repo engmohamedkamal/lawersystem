@@ -13,6 +13,11 @@ export const sendNotification = async ({
     clientPhone,
     clientEmail,
     dueDate,
+    caseId,
+    caseNumber,
+    amount,
+    month,
+    year,
 }: {
     userId: string
     type:   NotificationType
@@ -24,6 +29,11 @@ export const sendNotification = async ({
     clientPhone?: string | undefined
     clientEmail?: string | undefined
     dueDate?:    Date | undefined
+    caseId?: string | undefined
+    caseNumber?: string | undefined
+    amount?: number | undefined
+    month?: number | undefined
+    year?: number | undefined
 }) => {
     const notification = await NotificationModel.create({
         user: userId,
@@ -37,6 +47,11 @@ export const sendNotification = async ({
         clientPhone,
         clientEmail,
         dueDate,
+        caseId,
+        caseNumber,
+        amount,
+        month,
+        year,
     })
 
     emitToUser(userId, "notification", {
@@ -51,6 +66,11 @@ export const sendNotification = async ({
         clientPhone,
         clientEmail,
         dueDate,
+        caseId,
+        caseNumber,
+        amount,
+        month,
+        year,
         createdAt: notification.createdAt,
     })
 

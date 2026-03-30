@@ -24,8 +24,8 @@ export interface ISession extends mongoose.Document {
   circuit?: string;
   notes?: string;
   assignedTo: Types.ObjectId;
-  attachments: ISessionAttachment[]
-  team: Types.ObjectId;
+  attachments: ISessionAttachment[];
+  team: Types.ObjectId[];
   createdBy: Types.ObjectId;
   isDeleted?: boolean;
   deletedAt?: Date;
@@ -54,7 +54,7 @@ const SessionSchema = new mongoose.Schema<ISession>(
     circuit: { type: String, trim: true, maxLength: 200 },
     notes: { type: String, trim: true, maxLength: 4000 },
     assignedTo: { type: Types.ObjectId, ref: "User" , required: true },
-    team: { type: Types.ObjectId, ref: "User"},
+    team: [{ type: Types.ObjectId, ref: "User"}],
     attachments: { type: [SessionAttachmentSchema], default: [] },
     createdBy: { type: Types.ObjectId, ref: "User", required: true },
     isDeleted: { type: Boolean, default: false },

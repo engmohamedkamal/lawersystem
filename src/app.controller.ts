@@ -26,6 +26,9 @@ import archiveRouter from "./moudles/Archive/Archive.controller"
 import sessionRouter from "./moudles/Session/session.controller"
 import CalendarRouter from "./moudles/Calendar/Calendar.controller"
 import PayrollRouter from "./moudles/Payroll/Payroll.controller"
+import lawReminderRouter from "./moudles/LawArticles/lawReminder.controller"
+import legalDocumentRouter from "./moudles/LegalDocument/LegalDocument.controller"
+import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
 
 
 
@@ -72,11 +75,16 @@ const bootStrap = ()=>{
     app.use("/session", sessionRouter); 
     app.use("/calendar" , CalendarRouter)
     app.use("/payroll", PayrollRouter)
+    app.use("/lawReminder", lawReminderRouter)
+    app.use("/legalDocuments", legalDocumentRouter)
+
     
     
     connectionDB()
 
     startCronJobs(); 
+
+    seedDocumentTemplates().catch((e) => console.error("[SEED ERROR]", e))
 
     initSocket(httpServer)
 

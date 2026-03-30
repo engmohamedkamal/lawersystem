@@ -1,10 +1,13 @@
 import mongoose, { Types } from "mongoose"
 
 export const NOTIFICATION_TYPES = [
-    "task_assigned",    // مهمة جديدة
-    "task_updated",     // تحديث مهمة
-    "task_completed",   // مهمة مكتملة
-    "task_overdue",     // مهمة متأخرة
+    "task_assigned", 
+    "task_updated",  
+    "task_completed", 
+    "task_overdue",     
+    "case_assigned",    
+    "payroll_transaction", 
+    "payroll_approved",    
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -23,6 +26,11 @@ export interface INotification extends mongoose.Document {
     clientPhone?: string | undefined
     clientEmail?: string | undefined         
     dueDate?:    Date
+    caseId?:  Types.ObjectId
+    caseNumber?: string
+    amount?: number
+    month?: number
+    year?: number
     createdAt: Date
 }
 
@@ -39,7 +47,11 @@ const NotificationSchema = new mongoose.Schema<INotification>(
         clientPhone:  { type: String },
         clientEmail:  { type: String },
         dueDate:     { type: Date },
-
+        caseId:      { type: Types.ObjectId, ref: "LegalCase" },
+        caseNumber:  { type: String },
+        amount:      { type: Number },
+        month:       { type: Number },
+        year:        { type: Number },
     },
     { timestamps: true }
 )

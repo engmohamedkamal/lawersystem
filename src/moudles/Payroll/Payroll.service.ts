@@ -4,6 +4,7 @@ import PayrollTransactionModel, {AdvanceMode,PayrollTransactionType,} from "../.
 import PayrollMonthModel, { PayrollMonthStatus } from "../../DB/model/PayrollMonth.model"
 import { AppError } from "../../utils/classError"
 import {approvePayrollSchemaType,createPayrollTransactionSchemaType,deletePayrollTransactionParamsType,getPayrollEmployeeHistoryParamsType,getPayrollEmployeeParamsType,getPayrollEmployeeSchemaType,getPayrollMonthlySchemaType,updatePayrollTransactionParamsType,updatePayrollTransactionSchemaType,} from "./payroll.validation"
+import { sendNotification } from "../task/notification.service"
 
 class PayrollService {
     
@@ -125,6 +126,23 @@ class PayrollService {
       advanceMode: body.advanceMode,
       installmentMonths: body.installmentMonths,
       createdBy: req.user?._id,
+    })
+
+    const typeTranslations: Record<string, string> = {
+      [PayrollTransactionType.BONUS]: "مكافأة",
+      [PayrollTransactionType.DEDUCTION]: "خصم",
+      [PayrollTransactionType.ADVANCE]: "سلفة"
+    }
+    const typeAr = typeTranslations[body.type] || "معاملة";
+
+    await sendNotification({
+        userId: body.employee,
+        type: "payroll_transaction",
+        title: "إضافة مالية جديدة",
+        body: `تم تسجيل ${typeAr} بقيمة ${body.amount} ضمن معاملاتك في شهر ${month}/${year}.`,
+        amount: body.amount,
+        month,
+        year
     })
 
     return res.status(201).json({
@@ -276,6 +294,23 @@ class PayrollService {
       },
       { upsert: true, new: true }
     )
+
+    const users = await UserModel.find({ role: { $ne: Role.ADMIN } })
+      .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee")
+      .lean()
+      
+    const filtered = users.filter(user => this.employeeBelongsToMonth(user, month, year))
+    
+    for (const user of filtered) {
+        await sendNotification({
+            userId: user._id.toString(),
+            type: "payroll_approved",
+            title: "اعتماد الرواتب",
+            body: `تم اعتماد رواتب شهر ${month} لعام ${year}، يمكنك مراجعة كشف راتبك الآن.`,
+            month,
+            year
+        })
+    }
 
     return res.status(200).json({
       message: "payroll month approved successfully",

@@ -7,6 +7,7 @@ import { Role } from "../../DB/model/user.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import SessionModel from "../../DB/model/session.model";
+import { sendNotification } from "../task/notification.service";
 
 class LegalCaseService {
     constructor() {}
@@ -34,6 +35,27 @@ class LegalCaseService {
             .populate("client", "fullName phone type")
             .populate("caseType",  "name")
             .populate("assignedTo", "UserName email")
+
+        const notifyUsers = [];
+        if (caseData.assignedTo) {
+            notifyUsers.push(caseData.assignedTo);
+        }
+        if (caseData.team && Array.isArray(caseData.team)) {
+            notifyUsers.push(...caseData.team);
+        }
+        
+        const uniqueNotifyUsers = [...new Set(notifyUsers.map(String))];
+
+        for (const userId of uniqueNotifyUsers) {
+            await sendNotification({
+                userId,
+                type: "case_assigned",
+                title: "قضية جديدة",
+                body: `تم إضافتك في قضية جديدة رقم: ${caseData.caseNumber} — العميل: ${client.fullName}`,
+                caseId: legalCase._id.toString(),
+                caseNumber: caseData.caseNumber,
+            });
+        }
 
         return res.status(201).json({ message: "Case created successfully", case: populated })
     }
@@ -286,9 +308,6 @@ class LegalCaseService {
         return res.status(200).json({ message: "Case deleted successfully" })
 
     }
-
-   
-
 }
 
 export default new LegalCaseService()

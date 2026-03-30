@@ -54,7 +54,7 @@ class usersService {
            if (!includeDeleted) filter.isDeleted = false
            if (!includeInactive) filter.isActiveEmployee = true
 
-           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto createdAt updatedAt isDeleted ");
+           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ");
 
            return res.status(200).json({ message: "done", users });
         };
@@ -62,7 +62,7 @@ class usersService {
     getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as getUserByIdParamsType
 
-        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto createdAt updatedAt isDeleted ")
+        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ")
 
         if (!user) {
             throw new AppError("user not found" , 404)
