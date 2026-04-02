@@ -5,6 +5,8 @@ import { AppError } from "../../utils/classError";
 import { addUsersByAdminSchemaType, deleteUserParamsType, freezeUserParamsType, getUserByIdParamsType, getUsersSchemaType, unfreezeUserParamsType, updateUserBodyType, updateUserParamsType } from "./users.validation";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
+import LegalCaseModel from "../../DB/model/LegalCase.model";
+import SessionModel from "../../DB/model/session.model";
 
 
 class usersService {
@@ -46,13 +48,11 @@ class usersService {
         };
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {
-           const { role , includeDeleted, includeInactive } = req.query as unknown as getUsersSchemaType ;
+           const { role } = req.query as unknown as getUsersSchemaType ;
 
            const filter: any = {};
 
            if (role) {filter.role = role;}
-           if (!includeDeleted) filter.isDeleted = false
-           if (!includeInactive) filter.isActiveEmployee = true
 
            const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ");
 
@@ -68,8 +68,81 @@ class usersService {
             throw new AppError("user not found" , 404)
         }
 
-        return res.status(200).json({ message: "done", user });
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfDay);
+        endOfWeek.setDate(startOfDay.getDate() + 7);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const caseFilter = {
+            $or: [{ assignedTo: userId }, { team: userId }],
+            isDeleted: false
         };
+
+        const [totalCases, activeCases, completedCases, thisWeekSessions] = await Promise.all([
+            LegalCaseModel.countDocuments(caseFilter),
+            LegalCaseModel.countDocuments({ ...caseFilter, status: { $in: ["قيد التحضير", "قيد التنفيذ"] } }),
+            LegalCaseModel.countDocuments({ ...caseFilter, status: "منتهية" }),
+            SessionModel.countDocuments({
+                $or: [{ assignedTo: userId }, { team: userId }],
+                isDeleted: false,
+                startAt: { $gte: startOfDay, $lte: endOfWeek }
+            })
+        ]);
+
+        return res.status(200).json({ 
+            message: "done", 
+            user,
+            stats: {
+                thisWeekSessions,
+                activeCases,
+                completedCases,
+                totalCases
+            }
+        });
+        };
+
+    getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
+        const userId = req.user?._id;
+
+        const user = await UserModel.findById(userId)
+            .select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo isActiveEmployee createdAt updatedAt isDeleted");
+
+        if (!user) throw new AppError("user not found", 404);
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfDay);
+        endOfWeek.setDate(startOfDay.getDate() + 7);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        const caseFilter = {
+            $or: [{ assignedTo: userId }, { team: userId }],
+            isDeleted: false
+        };
+
+        const [totalCases, activeCases, completedCases, thisWeekSessions] = await Promise.all([
+            LegalCaseModel.countDocuments(caseFilter),
+            LegalCaseModel.countDocuments({ ...caseFilter, status: { $in: ["قيد التحضير", "قيد التنفيذ"] } }),
+            LegalCaseModel.countDocuments({ ...caseFilter, status: "منتهية" }),
+            SessionModel.countDocuments({
+                $or: [{ assignedTo: userId }, { team: userId }],
+                isDeleted: false,
+                startAt: { $gte: startOfDay, $lte: endOfWeek }
+            })
+        ]);
+
+        return res.status(200).json({ 
+            message: "done", 
+            user,
+            stats: {
+                thisWeekSessions,
+                activeCases,
+                completedCases,
+                totalCases
+            }
+        });
+    };
 
     updateUsersByAdmin = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as updateUserParamsType
@@ -98,7 +171,7 @@ class usersService {
             userId,
             {$set : body},
             { returnDocument: "after", runValidators: true }
-        ).select("UserName email phone jobTitle department role lawyerRegistrationNo permissions salary employmentDate leavingDate isActiveEmployee");
+        ).select("UserName email phone jobTitle department role lawyerRegistrationNo salary employmentDate leavingDate isActiveEmployee");
 
         if (!user) {
             throw new AppError("user not found", 404)
@@ -115,6 +188,16 @@ class usersService {
         if (!user) throw new AppError("user not found", 404);
 
         return res.status(200).json({ message: "done, user deleted", user });
+        };
+
+    hardDeleteUser = async (req: Request, res: Response, next: NextFunction) => {
+        const { userId } = req.params as unknown as deleteUserParamsType;
+
+        const user = await UserModel.findByIdAndDelete(userId).select("_id UserName email role");
+
+        if (!user) throw new AppError("user not found", 404);
+
+        return res.status(200).json({ message: "done, user permanently deleted (Hard Delete)", user });
         };
 
     freezeUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -164,8 +247,11 @@ class usersService {
 
       const { secure_url, public_id } = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
 
-      (user as any).ProfilePhoto = { url: secure_url, publicId: public_id };
-      await user.save();
+      const updatedUser = await UserModel.findByIdAndUpdate(
+        req.user?._id,
+        { $set: { ProfilePhoto: { url: secure_url, publicId: public_id } } },
+        { new: true }
+      );
 
       if (oldPublicId) {
         await cloudinary.uploader.destroy(oldPublicId);
@@ -173,7 +259,7 @@ class usersService {
 
       return res.status(200).json({
         message: "Profile photo updated",
-        user,
+        user: updatedUser,
       });
         };
 

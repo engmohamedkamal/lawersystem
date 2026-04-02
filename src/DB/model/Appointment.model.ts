@@ -6,6 +6,7 @@ export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 
 export interface IAppointment extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   fullName : string,
   phone : string,
   email : string,
@@ -21,6 +22,7 @@ export interface IAppointment extends mongoose.Document {
 
 const AppointmentSchema = new mongoose.Schema<IAppointment>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     fullName : {type : String , required : true , minLength : 2 , maxLength : 50 ,trim : true},
     phone : {type : String , required : true},
     email : {type : String , trim : true},

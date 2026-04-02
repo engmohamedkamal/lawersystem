@@ -13,6 +13,7 @@ export interface IWorkHour {
 
 export interface ISettings extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   officeName: string;
   crNumber?: string;
   officialEmail?: string;
@@ -38,6 +39,7 @@ const WorkHourSchema = new mongoose.Schema<IWorkHour>(
 
 const SettingsSchema = new mongoose.Schema<ISettings>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     officeName: { type: String, required: true, trim: true, minLength: 2, maxLength: 100 },
     crNumber: { type: String, trim: true },
     officialEmail: { type: String, trim: true, lowercase: true },

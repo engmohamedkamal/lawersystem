@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface ICaseType extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   name: string;          
   isActive: boolean;     
   createdBy?: Types.ObjectId; 
@@ -9,6 +10,7 @@ export interface ICaseType extends mongoose.Document {
 
 const CaseTypeSchema = new mongoose.Schema<ICaseType>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     name: { type: String, required: true, trim: true, minLength: 2, maxLength: 50 },
     isActive: { type: Boolean, default: true },
     createdBy: { type: Types.ObjectId, ref: "User" },

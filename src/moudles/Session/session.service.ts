@@ -326,8 +326,41 @@ class sessionService {
         })
     }
 
-
-
+    getAllSessions = async (req: Request, res: Response, next: NextFunction) => {
+        const { status, page = "1", limit = "10" } = req.query;
+ 
+        const filter: any = { isDeleted: false };
+        
+        if (req.user?.role === Role.LAWYER) {
+            filter.$or = [{ assignedTo: req.user?.id }, { team: req.user?.id }];
+        }
+ 
+        if (status) filter.status = status;
+ 
+        const pageNum  = Math.max(Number(page), 1);
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100);
+        const skip     = (pageNum - 1) * limitNum;
+ 
+        const [sessions, total] = await Promise.all([
+            SessionModel.find(filter)
+                .populate("legalCase",  "caseNumber status client court city description")
+                .populate("assignedTo", "UserName email phone ProfilePhoto")
+                .populate("team",       "UserName email phone ProfilePhoto")
+                .populate("createdBy",  "UserName email")
+                .sort({ startAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            SessionModel.countDocuments(filter),
+        ]);
+ 
+        return res.status(200).json({
+            message: "success",
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            sessions,
+        });
+    }
 
 }
 

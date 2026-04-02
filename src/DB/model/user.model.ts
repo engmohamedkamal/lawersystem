@@ -6,6 +6,7 @@ export enum Role{
 }
 export interface IUser extends mongoose.Document{
     _id:Types.ObjectId,
+    officeId: Types.ObjectId,
     UserName:string,
     email:string,
     password:string,
@@ -14,8 +15,7 @@ export interface IUser extends mongoose.Document{
         url: string,
         PublicId: string
     },
-    lawyerRegistrationNo: string,
-    permissions : [string]
+    lawyerRegistrationNo?: string,
     role:Role,
     phone:number,
     department : string,
@@ -31,6 +31,7 @@ export interface IUser extends mongoose.Document{
     updatedAt : Date
 }
 const UserSchema = new mongoose.Schema<IUser>({
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     UserName : {type : String , required : true , minLength : 2 , maxLength : 50 ,trim : true},
     email : {type : String , required : true , unique : true , trim : true},
     password : {type : String , required : true},
@@ -40,7 +41,6 @@ const UserSchema = new mongoose.Schema<IUser>({
         url:{ type : String},
         PublicId: { type : String}
     },
-    permissions: [{ type: String }],
     role : {type : String , default : Role.STAFF},
     phone : {type : Number , required : true},
     department : { type : String},

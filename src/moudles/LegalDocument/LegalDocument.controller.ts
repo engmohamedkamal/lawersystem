@@ -9,9 +9,7 @@ import * as LV            from "./LegalDocument.validation";
 
 const legalDocumentRouter = Router();
 
-// ── Templates ──────────────────────────────────────────────────────────────────
 
-// GET — جلب كل القوالب النشطة (كل الأدوار)
 legalDocumentRouter.get(
   "/templates",
   authentication(TokenType.access),
@@ -19,7 +17,6 @@ legalDocumentRouter.get(
   LD.getAllTemplates
 );
 
-// GET — جلب قالب واحد (كل الأدوار)
 legalDocumentRouter.get(
   "/templates/:id",
   authentication(TokenType.access),
@@ -28,7 +25,6 @@ legalDocumentRouter.get(
   LD.getTemplateById
 );
 
-// POST — إضافة قالب جديد (Admin فقط)
 legalDocumentRouter.post(
   "/templates",
   authentication(TokenType.access),
@@ -37,7 +33,6 @@ legalDocumentRouter.post(
   LD.createTemplate
 );
 
-// PATCH — تعديل قالب (Admin فقط)
 legalDocumentRouter.patch(
   "/templates/:id",
   authentication(TokenType.access),
@@ -46,7 +41,6 @@ legalDocumentRouter.patch(
   LD.updateTemplate
 );
 
-// DELETE — حذف (تعطيل) قالب (Admin فقط)
 legalDocumentRouter.delete(
   "/templates/:id",
   authentication(TokenType.access),
@@ -55,7 +49,6 @@ legalDocumentRouter.delete(
   LD.deleteTemplate
 );
 
-// ── Documents ─────────────────────────────────────────────────────────────────
 
 legalDocumentRouter.post(
   "/",
@@ -73,7 +66,6 @@ legalDocumentRouter.get(
   LD.getUserDocuments
 );
 
-// ── Export (قبل /:id عشان Express لا يعتبر "export" كـ id) ──────────────────
 
 legalDocumentRouter.get(
   "/:id/export/pdf",
@@ -83,7 +75,6 @@ legalDocumentRouter.get(
   LD.exportPDF
 );
 
-// ── Single Document ───────────────────────────────────────────────────────────
 
 legalDocumentRouter.get(
   "/:id",

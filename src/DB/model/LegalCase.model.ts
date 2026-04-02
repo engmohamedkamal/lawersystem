@@ -38,6 +38,7 @@ export interface IAttachment {
 
 export interface ILegalCase extends mongoose.Document {
   _id:           Types.ObjectId;
+  officeId:      Types.ObjectId;
   caseNumber:    string;
   caseType:      Types.ObjectId;
   status:        CaseStatus;
@@ -94,6 +95,7 @@ const AttachmentSchema = new mongoose.Schema<IAttachment>(
 
 const LegalCaseSchema = new mongoose.Schema<ILegalCase>(
   {
+    officeId:      { type: Types.ObjectId, ref: "Office", required: false },
     caseNumber:    { type: String, required: true, trim: true, unique: true },
     caseType:      { type: Types.ObjectId, ref: "CaseType",  required: true },
     client:        { type: Types.ObjectId, ref: "Client",    required: true },

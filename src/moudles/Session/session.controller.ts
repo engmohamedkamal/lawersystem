@@ -19,6 +19,13 @@ sessionRouter.post(
 )
 
 sessionRouter.get(
+    "/",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+    SS.getAllSessions
+)
+
+sessionRouter.get(
     "/case/:legalCaseId",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),

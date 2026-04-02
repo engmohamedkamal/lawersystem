@@ -13,6 +13,7 @@ export enum AdvanceMode {
 
 export interface IPayrollTransaction extends mongoose.Document {
   _id: Types.ObjectId
+  officeId: Types.ObjectId
   employee: Types.ObjectId
   type: PayrollTransactionType
   amount: number
@@ -30,6 +31,7 @@ export interface IPayrollTransaction extends mongoose.Document {
 
 const PayrollTransactionSchema = new mongoose.Schema<IPayrollTransaction>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     employee: {
       type: Types.ObjectId,
       ref: "User",

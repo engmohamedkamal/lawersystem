@@ -10,6 +10,7 @@ export interface IInvoiceItem {
 
 export interface IInvoice extends mongoose.Document {
     _id:           Types.ObjectId
+    officeId:      Types.ObjectId
     invoiceNumber: string
     legalCase:     Types.ObjectId
     client:        Types.ObjectId
@@ -40,6 +41,7 @@ const InvoiceItemSchema = new mongoose.Schema<IInvoiceItem>(
 
 const InvoiceSchema = new mongoose.Schema<IInvoice>(
     {
+        officeId:      { type: Types.ObjectId, ref: "Office", required: false },
         invoiceNumber: { type: String, required: true, unique: true, trim: true },
         legalCase:     { type: Types.ObjectId, ref: "LegalCase", required: false },
         client:        { type: Types.ObjectId, ref: "Client",    required: true },

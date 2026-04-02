@@ -23,6 +23,7 @@ export interface IDocumentStyle {
 
 export interface ILegalDocument extends mongoose.Document {
   _id:        Types.ObjectId;
+  officeId:   Types.ObjectId;
   userId:     Types.ObjectId;
   templateId: Types.ObjectId;
   title:      string;
@@ -64,6 +65,7 @@ const DocumentStyleSchema = new mongoose.Schema<IDocumentStyle>(
 
 const LegalDocumentSchema = new mongoose.Schema<ILegalDocument>(
   {
+    officeId:   { type: mongoose.Types.ObjectId, ref: "Office", required: false },
     userId:     { type: mongoose.Types.ObjectId, ref: "User",             required: true },
     templateId: { type: mongoose.Types.ObjectId, ref: "DocumentTemplate", required: true },
     title:      { type: String, required: true, trim: true },

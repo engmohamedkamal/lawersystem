@@ -110,6 +110,47 @@ class LegalCaseService {
         })
     }
 
+    getLawyerCases = async (req: Request, res: Response, next: NextFunction) => {
+        const { lawyerId } = req.params;
+        const { status, caseType, priority, page = "1", limit = "10" } = req.query;
+
+        const filter: Record<string, any> = { 
+            isDeleted: false,
+            $or: [
+                { assignedTo: lawyerId },
+                { team: lawyerId },
+            ]
+        };
+        
+        if (status)     filter.status   = status;
+        if (caseType)   filter.caseType = caseType;
+        if (priority)   filter.priority = priority;
+
+        const pageNum  = Math.max(Number(page), 1);
+        const limitNum = Math.min(Math.max(Number(limit), 1), 100);
+        const skip     = (pageNum - 1) * limitNum;
+
+        const [cases, total] = await Promise.all([
+            LegalCaseModel.find(filter)
+                .populate("client",     "fullName phone type")
+                .populate("caseType",   "name")
+                .populate("assignedTo", "UserName email")
+                .populate("team",       "UserName email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            LegalCaseModel.countDocuments(filter),
+        ]);
+
+        return res.status(200).json({
+            message:    "success",
+            total,
+            page:       pageNum,
+            totalPages: Math.ceil(total / limitNum),
+            cases,
+        });
+    }
+
     getCaseById = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
         const role   = req.user?.role

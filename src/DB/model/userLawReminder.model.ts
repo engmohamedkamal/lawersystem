@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface IUserLawReminder extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   userId: Types.ObjectId;
   lawId: Types.ObjectId;
   lastArticleId?: Types.ObjectId;
@@ -12,6 +13,7 @@ export interface IUserLawReminder extends mongoose.Document {
 
 const UserLawReminderSchema = new mongoose.Schema<IUserLawReminder>(
   {
+    officeId: { type: mongoose.Types.ObjectId, ref: "Office", required: false },
     userId: { type: mongoose.Types.ObjectId, ref: "User", required: true },
     lawId: { type: mongoose.Types.ObjectId, ref: "Law", required: true },
     lastArticleId: { type: mongoose.Types.ObjectId, ref: "LawArticle" },

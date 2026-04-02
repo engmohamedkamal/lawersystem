@@ -26,6 +26,12 @@ userRouter.get("/",
   US.getUsers
 );
 
+userRouter.get("/profile/me",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+  US.getMyProfile
+);
+
 userRouter.get("/:userId",
   validation(UV.getUserByIdSchema),
   authentication(TokenType.access),
@@ -45,6 +51,13 @@ userRouter.patch("/deleteUser/:userId",
   authentication(TokenType.access),
   authorization(Role.ADMIN),
   US.deleteUsersByAdmin
+);
+
+userRouter.delete("/hardDeleteUser/:userId",
+  validation(UV.deleteUserSchema),
+  authentication(TokenType.access),
+  authorization(Role.ADMIN),
+  US.hardDeleteUser
 );
 
 userRouter.patch("/:userId/freeze",

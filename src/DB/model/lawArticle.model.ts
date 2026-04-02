@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface ILawArticle extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   lawId: Types.ObjectId;
   articleNumber: number;
   title: string;
@@ -12,6 +13,7 @@ export interface ILawArticle extends mongoose.Document {
 
 const LawArticleSchema = new mongoose.Schema<ILawArticle>(
   {
+    officeId: { type: mongoose.Types.ObjectId, ref: "Office", required: false },
     lawId: { type: mongoose.Types.ObjectId, ref: "Law", required: true },
     articleNumber: { type: Number, required: true },
     title: { type: String, required: true, trim: true },

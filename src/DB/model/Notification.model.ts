@@ -15,6 +15,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export interface INotification extends mongoose.Document {
     _id:      Types.ObjectId
+    officeId: Types.ObjectId
     user:     Types.ObjectId 
     type:     NotificationType
     title:    string
@@ -36,6 +37,7 @@ export interface INotification extends mongoose.Document {
 
 const NotificationSchema = new mongoose.Schema<INotification>(
     {
+        officeId:    { type: Types.ObjectId, ref: "Office", required: false },
         user:        { type: Types.ObjectId, ref: "User",  required: true },
         type:        { type: String, enum: NOTIFICATION_TYPES, required: true },
         title:       { type: String, required: true },

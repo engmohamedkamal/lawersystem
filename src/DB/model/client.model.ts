@@ -38,6 +38,7 @@ export interface IClientExtraPayment {
 
 export interface IClient extends mongoose.Document {
   _id:           Types.ObjectId;
+  officeId:      Types.ObjectId;
   type:          ClientType;
   fullName:      string;
   crNumber:      string;
@@ -86,6 +87,7 @@ const ClientExtraPaymentSchema = new mongoose.Schema<IClientExtraPayment>(
 
 const ClientSchema = new mongoose.Schema<IClient>(
   {
+    officeId:      { type: Types.ObjectId, ref: "Office", required: false },
     type:          { type: String, enum: CLIENT_TYPES, required: true, default: "فرد" },
     fullName:      { type: String, required: true, trim: true, maxLength: 100 },
     crNumber:      { type: String, trim: true, required: true, unique: true },

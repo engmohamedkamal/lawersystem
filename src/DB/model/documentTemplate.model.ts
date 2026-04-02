@@ -19,6 +19,7 @@ export interface ITemplateSection {
 
 export interface IDocumentTemplate extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   name: string;
   type: string;
   description?: string;
@@ -52,6 +53,7 @@ const TemplateSectionSchema = new mongoose.Schema<ITemplateSection>(
 
 const DocumentTemplateSchema = new mongoose.Schema<IDocumentTemplate>(
   {
+    officeId:         { type: Types.ObjectId, ref: "Office", required: false },
     name:             { type: String, required: true, trim: true },
     type:             { type: String, required: true, trim: true },
     description:      { type: String, trim: true },

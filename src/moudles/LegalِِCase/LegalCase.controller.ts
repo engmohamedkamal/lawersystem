@@ -29,6 +29,13 @@ LegalCaseRouter.get(
 );
 
 LegalCaseRouter.get(
+    "/lawyer/:lawyerId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF, Role.LAWYER),
+    CS.getLawyerCases
+);
+
+LegalCaseRouter.get(
     "/:id",
     authentication(TokenType.access),
     authorization(),

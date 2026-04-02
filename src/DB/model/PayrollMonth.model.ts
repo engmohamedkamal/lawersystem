@@ -7,6 +7,7 @@ export enum PayrollMonthStatus {
 
 export interface IPayrollMonth extends mongoose.Document {
   _id: Types.ObjectId
+  officeId: Types.ObjectId
   month: number
   year: number
   status: PayrollMonthStatus
@@ -18,6 +19,7 @@ export interface IPayrollMonth extends mongoose.Document {
 
 const PayrollMonthSchema = new mongoose.Schema<IPayrollMonth>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     month: {
       type: Number,
       required: true,

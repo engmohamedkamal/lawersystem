@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface ILaw extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   title: string;
   category: "EGYPTIAN_LAW" | "CONSTITUTION";
   fileUrl?: string;
@@ -13,6 +14,7 @@ export interface ILaw extends mongoose.Document {
 
 const LawSchema = new mongoose.Schema<ILaw>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     title: { type: String, required: true, trim: true },
     category: {
       type: String,

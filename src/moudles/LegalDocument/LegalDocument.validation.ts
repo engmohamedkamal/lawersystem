@@ -21,7 +21,6 @@ const styleSchema = z.object({
   marginRight:  z.number().min(0).max(200).optional(),
 }).optional();
 
-// ─── Create Document ──────────────────────────────────────────────────────────
 
 export const createDocumentSchema = {
   body: z.object({
@@ -35,7 +34,6 @@ export const createDocumentSchema = {
   }),
 };
 
-// ─── Update Document (autosave-friendly — all fields optional) ────────────────
 
 export const updateDocumentSchema = {
   params: z.object({ id: z.string().min(1) }),
@@ -48,19 +46,16 @@ export const updateDocumentSchema = {
   }),
 };
 
-// ─── Document Params ──────────────────────────────────────────────────────────
 
 export const documentParamsSchema = {
   params: z.object({ id: z.string().min(1, "id is required") }),
 };
 
-// ─── Template Params ──────────────────────────────────────────────────────────
 
 export const templateParamsSchema = {
   params: z.object({ id: z.string().min(1, "id is required") }),
 };
 
-// ─── Create Template ──────────────────────────────────────────────────────────
 
 const templateFieldSchema = z.object({
   key:         z.string().trim().min(1),
@@ -103,7 +98,6 @@ export const updateTemplateSchema = {
 export type CreateTemplateBodyType = z.infer<typeof createTemplateSchema.body>;
 export type UpdateTemplateBodyType = z.infer<typeof updateTemplateSchema.body>;
 
-// ─── List Documents Query ─────────────────────────────────────────────────────
 
 export const listDocumentsSchema = {
   query: z.object({
@@ -114,7 +108,6 @@ export const listDocumentsSchema = {
   }),
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CreateDocumentBodyType  = z.infer<typeof createDocumentSchema.body>;
 export type UpdateDocumentBodyType  = z.infer<typeof updateDocumentSchema.body>;

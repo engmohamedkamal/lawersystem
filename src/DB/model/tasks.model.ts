@@ -8,6 +8,7 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number]
 
 export interface ITask extends mongoose.Document {
     _id:         Types.ObjectId
+    officeId:    Types.ObjectId
     title:       string
     description?: string
     assignedTo:  Types.ObjectId       
@@ -25,6 +26,7 @@ export interface ITask extends mongoose.Document {
 
 const TaskSchema = new mongoose.Schema<ITask>(
     {
+        officeId:    { type: Types.ObjectId, ref: "Office", required: false },
         title:       { type: String, required: true, trim: true, maxlength: 300 },
         description: { type: String, trim: true, maxlength: 2000 },
         assignedTo:  { type: Types.ObjectId, ref: "User", required: true },

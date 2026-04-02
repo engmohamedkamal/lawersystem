@@ -2,6 +2,7 @@ import mongoose, { Types } from "mongoose";
 
 export interface IAvailabilitySlot extends mongoose.Document {
   _id: Types.ObjectId;
+  officeId: Types.ObjectId;
   startAt: Date;
   endAt: Date;
   status: "AVAILABLE" | "BOOKED" | "CANCELLED";
@@ -10,6 +11,7 @@ export interface IAvailabilitySlot extends mongoose.Document {
 }
 const AvailabilitySlotSchema = new mongoose.Schema<IAvailabilitySlot>(
   {
+    officeId: { type: Types.ObjectId, ref: "Office", required: false },
     startAt: { type: Date, required: true },
     endAt: { type: Date, required: true },
     status: {

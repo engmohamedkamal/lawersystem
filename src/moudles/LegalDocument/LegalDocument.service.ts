@@ -74,7 +74,6 @@ class LegalDocumentService {
     const template = await DocumentTemplateModel.findById(id);
     if (!template) throw new AppError("template not found", 404);
 
-    // soft delete — نعطل القالب بدل حذفه فعلياً لأن مستندات ممكن تكون مرتبطة بيه
     template.isActive = false;
     await template.save();
 
@@ -178,13 +177,11 @@ class LegalDocumentService {
     const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false });
     if (!document) throw new AppError("document not found", 404);
 
-    // تحديث العناصر الاختيارية فقط
     if (updates.title    !== undefined) document.title    = updates.title;
     if (updates.status   !== undefined) document.status   = updates.status;
     if (updates.sections !== undefined) document.sections = updates.sections as any;
     if (updates.style    !== undefined) Object.assign(document.style, updates.style);
 
-    // دمج الـ fields بدل الاستبدال الكامل (autosave-friendly)
     if (updates.fields) {
       for (const [k, v] of Object.entries(updates.fields)) {
         document.fields.set(k, v);
