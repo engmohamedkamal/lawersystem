@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose"
 
-export const SUBSCRIPTION_STATUSES = ["active", "suspended", "cancelled", "expired", "trial"] as const
+export const SUBSCRIPTION_STATUSES = ["active", "suspended", "cancelled", "expired"] as const
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
 
 export interface ISubscription {
@@ -15,6 +15,10 @@ export interface ISubscription {
     paymobTransactionId?: string
     lastPaymentAt?:       Date
     lastPaymentAmount?:   number
+    autoRenew:             boolean
+    paymobCardToken?:      string
+    cardLastFour?:         string
+    cardBrand?:            string
 }
 
 export interface IOfficeFeatures {
@@ -41,7 +45,7 @@ const SubscriptionSchema = new mongoose.Schema<ISubscription>(
     {
         planId:              { type: Types.ObjectId, ref: "Plan" },
         planSlug:            { type: String },
-        status:              { type: String, enum: SUBSCRIPTION_STATUSES, default: "trial" },
+        status:              { type: String, enum: SUBSCRIPTION_STATUSES },
         startDate:           { type: Date, default: Date.now },
         endDate:             { type: Date, required: true },
         billingInterval:     { type: String, enum: ["monthly", "yearly"] },
@@ -49,6 +53,10 @@ const SubscriptionSchema = new mongoose.Schema<ISubscription>(
         paymobTransactionId: { type: String },
         lastPaymentAt:       { type: Date },
         lastPaymentAmount:   { type: Number },
+        autoRenew:            { type: Boolean, default: false },
+        paymobCardToken:      { type: String, select: false },
+        cardLastFour:         { type: String },
+        cardBrand:            { type: String },
     },
     { _id: false }
 )

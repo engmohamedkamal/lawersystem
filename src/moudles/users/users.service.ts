@@ -7,6 +7,9 @@ import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
+import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../constants/planFeatures";
 
 
 class usersService {
@@ -14,6 +17,22 @@ class usersService {
 
     addUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
          const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role ,department , salary ,leavingDate }: addUsersByAdminSchemaType = req.body;
+
+         const officeId = req.user?.officeId;
+
+         //// TEMP: during development, allow creating users without office
+         if(officeId){
+            const office = await OfficeModel.findById(officeId);
+         if (!office) {
+            throw new AppError("office not found", 404);
+         }
+
+         const usersCount = await UserModel.countDocuments({ office: officeId });
+
+         assertFeatureLimitNotReached(office,
+           PLAN_FEATURES.USERS_MAX,
+            usersCount);
+         }
 
          if (await UserModel.findOne({ email })) {
            throw new AppError("email already exist", 409);

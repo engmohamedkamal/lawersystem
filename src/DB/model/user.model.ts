@@ -2,7 +2,8 @@ import mongoose, { Types } from "mongoose";
 export enum Role{
     ADMIN = "ADMIN",
     LAWYER = "LAWYER",
-    STAFF = "STAFF"
+    STAFF = "STAFF",
+    SUPER_ADMIN = "SUPER_ADMIN"
 }
 export interface IUser extends mongoose.Document{
     _id:Types.ObjectId,

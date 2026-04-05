@@ -7,6 +7,7 @@ import { Role } from "../../DB/model/user.model";
 import { authentication } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 const userRouter = Router()
 
@@ -42,6 +43,7 @@ userRouter.get("/:userId",
 userRouter.patch("/updateUser/:userId",
   validation(UV.updateUserSchema),
   authentication(TokenType.access),
+  // tenantMiddleware,
   authorization(Role.ADMIN),
   US.updateUsersByAdmin
 );

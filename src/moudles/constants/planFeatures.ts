@@ -1,0 +1,15 @@
+export const PLAN_FEATURES = {
+    APPOINTMENTS_ENABLED : "appointments.enabled",
+    ARCHIVE_ENABLED : "archive.enabled",
+    CALENDER_ENABLED : "calender.enabled",
+    CLIENT_MAX : "client.max",
+    INVOICE_ENABLED : "invoice.enabled",
+    LAW_ARTICLW_ENABLED : "lawArticles.enabled",
+    LEGALCASE_MAX : "legalCases.max",
+    LEGALDOCUMENTS_MAX : "legalDocuments.max",
+    PAROLE_ENABLED : "parole.enabled",
+    SESSION_MAX : "sessions.max",
+    TASK_ENABLED : "tasks.enabled",
+    USERS_MAX : "users.max",
+    STORAGE_MAX : "storage.max",
+}as const

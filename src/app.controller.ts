@@ -29,6 +29,7 @@ import PayrollRouter from "./moudles/Payroll/Payroll.controller"
 import lawReminderRouter from "./moudles/LawArticles/lawReminder.controller"
 import legalDocumentRouter from "./moudles/LegalDocument/LegalDocument.controller"
 import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
+import superAdminRouter from "./moudles/SASS/SuperAdmin/SuperAdmin.controller"
 
 
 
@@ -77,6 +78,10 @@ const bootStrap = ()=>{
     app.use("/payroll", PayrollRouter)
     app.use("/lawReminder", lawReminderRouter)
     app.use("/legalDocuments", legalDocumentRouter)
+
+    //sass
+
+    app.use("/super-admin",superAdminRouter)
 
     
     

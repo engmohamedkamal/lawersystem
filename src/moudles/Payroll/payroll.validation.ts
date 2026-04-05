@@ -8,7 +8,7 @@ export const createPayrollTransactionSchema = {
       type: z.nativeEnum(PayrollTransactionType),
       amount: z.number().positive(),
       note: z.string().trim().optional(),
-      date: z.coerce.date(),
+      date: z.coerce.date().optional(),
       advanceMode: z.nativeEnum(AdvanceMode).optional(),
       installmentMonths: z.number().int().min(2).optional(),
     })

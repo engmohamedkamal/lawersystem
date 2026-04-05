@@ -105,7 +105,7 @@ class PayrollService {
 
   createTransaction = async (req: Request, res: Response, next: NextFunction) => {
     const body: createPayrollTransactionSchemaType = req.body
-    const date = new Date(body.date)
+    const date = body.date ? new Date(body.date) : new Date()
     const month = date.getMonth() + 1
     const year = date.getFullYear()
 
