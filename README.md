@@ -717,7 +717,7 @@ src/
 2. **Environment Variables**
     Create `config/.env` with the following:
     ```env
-    PORT=5000
+    PORT=3000
     DB_URI=mongodb+srv://...
     ACCESS_TOKEN=your_access_secret
     REFRESH_TOKEN=your_refresh_secret
@@ -729,7 +729,7 @@ src/
 
 3. **Run Development Server**
     ```bash
-    npm run dev
+    npm run start:dev 
     ```
 
 4. **Server starts on** `http://localhost:3000`
