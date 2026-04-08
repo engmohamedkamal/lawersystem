@@ -49,21 +49,21 @@ class authService {
 
         const jwtid = uuidv4();
         //access token
-        const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName},
+        const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature : process.env.ACCESS_TOKEN!,
             options : {expiresIn : "3d" , jwtid }
         })
 
         //refresh token
-        const refresh_token = await generateToken({payload : {id:user._id , email},
+        const refresh_token = await generateToken({payload : {id:user._id , email , officeId: user.officeId},
             signature : process.env.REFRESH_TOKEN!,
             options : {expiresIn : "1y", jwtid }
         })
 
         res.cookie("refresh_token", refresh_token, {
            httpOnly: true, 
-           secure: process.env.NODE_ENV === "production", 
-           sameSite: "none", 
+           secure: true, 
+           sameSite: "none",
            maxAge: 1000 * 60 * 60 * 24 * 365, 
         });
 
@@ -122,7 +122,7 @@ class authService {
 
         res.cookie("refresh_token", new_refresh_token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: true,
             sameSite: "none",
             maxAge: 1000 * 60 * 60 * 24 * 365,
         });

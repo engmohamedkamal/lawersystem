@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { completeExpiredAppointments } from "./completeAppointments.job";
 import InvoiceModel from "../DB/model/invoice.model";
 import { sessionReminderJob } from "./Session.cron";
+import { startExpirePlanOffersCron } from "./expirePlanOffers";
 
 let appointmentsJobRunning = false;
 let reminderJobRunning = false;
@@ -20,6 +21,8 @@ const isMongoConnectionError = (error: any) => {
 };
 
 export const startCronJobs = () => {
+  startExpirePlanOffersCron();
+
   cron.schedule("*/5 * * * *", async () => {
     if (appointmentsJobRunning) {
       console.warn("[CRON] completeExpiredAppointments skipped: previous run still active");

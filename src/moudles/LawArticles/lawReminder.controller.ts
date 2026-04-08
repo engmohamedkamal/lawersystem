@@ -51,4 +51,11 @@ lawReminderRouter.delete(
   LR.deleteLaw
 );
 
+lawReminderRouter.get(
+  "/dropdown",
+  authentication(TokenType.access),
+  authorization(Role.ADMIN, Role.STAFF),
+  LR.getLawsDropdown
+);
+
 export default lawReminderRouter;

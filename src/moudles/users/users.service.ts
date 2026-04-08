@@ -9,7 +9,7 @@ import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
-import { PLAN_FEATURES } from "../constants/planFeatures";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 
 class usersService {
@@ -21,18 +21,18 @@ class usersService {
          const officeId = req.user?.officeId;
 
          //// TEMP: during development, allow creating users without office
-         if(officeId){
-            const office = await OfficeModel.findById(officeId);
+        
+          const office = await OfficeModel.findById(officeId);
          if (!office) {
             throw new AppError("office not found", 404);
          }
 
-         const usersCount = await UserModel.countDocuments({ office: officeId });
+         const usersCount = await UserModel.countDocuments({ officeId: officeId });
 
          assertFeatureLimitNotReached(office,
            PLAN_FEATURES.USERS_MAX,
             usersCount);
-         }
+         
 
          if (await UserModel.findOne({ email })) {
            throw new AppError("email already exist", 409);
@@ -58,6 +58,7 @@ class usersService {
            department,
            salary,
            leavingDate,
+           officeId: officeId,
            ...(profilePhoto ? { ProfilePhoto: profilePhoto } : {}),
          });
 

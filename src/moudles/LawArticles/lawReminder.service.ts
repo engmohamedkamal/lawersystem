@@ -230,6 +230,17 @@ class lawReminderService {
       message: "done, law and all related data deleted successfully",
     });
   };
+
+  getLawsDropdown = async (req: Request, res: Response) => {
+    const laws = await LawModel.find()
+      .sort({ createdAt: -1 })
+      .select("_id title category fileUrl");
+
+    return res.status(200).json({
+      message: "done",
+      laws,
+    });
+  };
 }
 
 export default new lawReminderService();

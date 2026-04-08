@@ -1,8 +1,8 @@
 import { AppError } from "../utils/classError"
 
 //for get feature value
-export const getFeatureValue = (office: any, key: string) => {
-    return office?.subscription?.features?.[key]
+export const getFeatureValue = (office: any, key: string ) => {
+    return office?.features?.[key]
 }   
 
 //for boolean features

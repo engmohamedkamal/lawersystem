@@ -11,7 +11,7 @@ export interface IPlanFeature {
 export interface IPlanOffer {
     label:           string
     discountPercent: number
-    validUntil?:     Date
+    validUntil?:     Date | undefined
     isActive:        boolean
 }
 
@@ -19,12 +19,14 @@ export interface IPlan extends mongoose.Document {
     _id:          Types.ObjectId
     name:         string
     slug:         string
-    description?: string
+    description?: string | undefined
     monthlyPrice: number
     yearlyPrice:  number
     currency:     string
     features:     IPlanFeature[]
-    offer?:       IPlanOffer
+    offer?:       IPlanOffer | undefined
+    monthlyPriceAfterDiscount?: number | undefined
+    yearlyPriceAfterDiscount?: number | undefined
     isActive:     boolean
     isPopular:    boolean
     sortOrder:    number
@@ -63,6 +65,8 @@ const PlanSchema = new mongoose.Schema<IPlan>(
         currency:     { type: String, default: "EGP" },
         features:     { type: [PlanFeatureSchema], default: [] },
         offer:        { type: PlanOfferSchema },
+        monthlyPriceAfterDiscount: { type: Number },
+        yearlyPriceAfterDiscount: { type: Number },
         isActive:     { type: Boolean, default: true },
         isPopular:    { type: Boolean, default: false },
         sortOrder:    { type: Number,  default: 0 },
@@ -73,5 +77,5 @@ const PlanSchema = new mongoose.Schema<IPlan>(
 PlanSchema.index({ slug: 1 },{ unique: true })
 PlanSchema.index({ isActive: 1, sortOrder: 1 })
 
-const PlanModel = mongoose.models.Plan || mongoose.model<IPlan>("Plan", PlanSchema)
+const PlanModel = (mongoose.models.Plan as mongoose.Model<IPlan>) || mongoose.model<IPlan>("Plan", PlanSchema)
 export default PlanModel

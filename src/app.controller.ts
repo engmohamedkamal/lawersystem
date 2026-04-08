@@ -18,7 +18,7 @@ import { startCronJobs } from "./jobs/scheduler"
 import clientRouter from "./moudles/client/client.controller"
 import invoiceRouter from "./moudles/invoice/invoice.controller"
 import LegalCaseRouter from "./moudles/LegalِِCase/LegalCase.controller"
-import { initSocket } from "./utils/soket"
+import { initSocket } from "./utils/socket"
 import { createServer } from "http"
 import taskRouter from "./moudles/task/task.controller"
 import DashboardRouter from "./moudles/Dashboard/Dashboard.controller"
@@ -30,6 +30,7 @@ import lawReminderRouter from "./moudles/LawArticles/lawReminder.controller"
 import legalDocumentRouter from "./moudles/LegalDocument/LegalDocument.controller"
 import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
 import superAdminRouter from "./moudles/SASS/SuperAdmin/SuperAdmin.controller"
+import saasRouter from "./moudles/SASS/subdcripition/subdcripition.controller"
 
 
 
@@ -80,8 +81,8 @@ const bootStrap = ()=>{
     app.use("/legalDocuments", legalDocumentRouter)
 
     //sass
-
     app.use("/super-admin",superAdminRouter)
+    app.use("/subscription" ,saasRouter)
 
     
     
@@ -102,8 +103,12 @@ const bootStrap = ()=>{
         throw new AppError(`invalid url ${req.originalUrl}`,  404 )
     })
 
-    app.use((err:AppError,req:Request,res:Response,next:NextFunction)=>{
-        return res.status(err.cause as unknown as number || 500).json({message:err.message , stack:err.stack})
+    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+        res.status(err.statusCode || 500).json({
+            status: "error",
+            message: err.message,
+            ...(err.details && { details: err.details })
+        })
     })
 
     httpServer.listen(port,"0.0.0.0",()=>{

@@ -1,5 +1,5 @@
 import NotificationModel, { NotificationType } from "../../DB/model/Notification.model"
-import { emitToUser } from "../../utils/soket"
+import { emitToUser } from "../../utils/socket"
 
 
 export const sendNotification = async ({

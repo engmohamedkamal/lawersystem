@@ -15,6 +15,7 @@ userRouter.post(
   "/addUsers",
   authentication(TokenType.access),
   authorization(Role.ADMIN, Role.STAFF),
+  tenantMiddleware,
   MulterHost({ customExtension: allowedExtensions.image }).single("profile"),
   validation(UV.addUsersByAdminSchema),
   US.addUsersByAdmin
