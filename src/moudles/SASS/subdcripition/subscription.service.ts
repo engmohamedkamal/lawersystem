@@ -7,6 +7,7 @@ import PlanModel from "../../../DB/model/SaaSModels/Plan.model"
 import OfficeModel from "../../../DB/model/SaaSModels/Office.model"
 import PaymentModel from "../../../DB/model/SaaSModels/Payment.model"
 import { createPaymobPaymentLink, PaymentMethod, verifyPaymobHmac } from "../payment/Paymob.service"
+import SettingsModel from "../../../DB/model/settings.model"
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const buildFeaturesFromPlan = (plan: any): Record<string, any> => {
@@ -77,9 +78,12 @@ class SubscriptionService {
             planId, billingInterval = "monthly",
             couponCode, saveCard = false,
             paymentMethod = "card",
+            officeName
         } = req.body
 
-        // تحقق من التكرار
+        // تحقق من التكرار والمطلبات
+        if (!officeName) throw new AppError("اسم المكتب مطلوب", 400)
+
         const [existingSubdomain, existingUser] = await Promise.all([
             OfficeModel.findOne({ subdomain: subdomain.toLowerCase() }),
             UserModel.findOne({ email }),
@@ -113,7 +117,7 @@ class SubscriptionService {
         const trialEnd = new Date(); trialEnd.setDate(trialEnd.getDate() + 1) // endDate مؤقتة
 
         const office = await OfficeModel.create({
-            name: UserName,            // مؤقت — يتغير من Settings
+            name: officeName,
             email: adminEmail,
             phone: String(adminPhone),
             subdomain: subdomain.toLowerCase(),
@@ -141,6 +145,13 @@ class SubscriptionService {
             officeId: office._id,
             employmentDate: new Date(),
         })
+
+        const setting = await SettingsModel.create({
+            officeId: office._id,
+            officeName: officeName,
+        })
+
+
 
         // إنشاء Payment record
         const payment = await PaymentModel.create({
