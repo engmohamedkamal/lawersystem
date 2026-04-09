@@ -42,7 +42,7 @@ const InvoiceItemSchema = new mongoose.Schema<IInvoiceItem>(
 const InvoiceSchema = new mongoose.Schema<IInvoice>(
     {
         officeId:      { type: Types.ObjectId, ref: "Office", required: false },
-        invoiceNumber: { type: String, required: true, unique: true, trim: true },
+        invoiceNumber: { type: String, required: true, trim: true },
         legalCase:     { type: Types.ObjectId, ref: "LegalCase", required: false },
         client:        { type: Types.ObjectId, ref: "Client",    required: true },
         items:         { type: [InvoiceItemSchema], default: [] },
@@ -67,6 +67,7 @@ const InvoiceSchema = new mongoose.Schema<IInvoice>(
 InvoiceSchema.index({ legalCase: 1 })
 InvoiceSchema.index({ client: 1 })
 InvoiceSchema.index({ status: 1 })
+InvoiceSchema.index({ invoiceNumber: 1, officeId: 1 }, { unique: true })
 
 const InvoiceModel = mongoose.models.Invoice || mongoose.model<IInvoice>("Invoice", InvoiceSchema)
 export default InvoiceModel

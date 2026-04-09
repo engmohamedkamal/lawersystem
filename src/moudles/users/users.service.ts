@@ -19,9 +19,7 @@ class usersService {
          const { email, password, phone, UserName , jobTitle , lawyerRegistrationNo , role ,department , salary ,leavingDate }: addUsersByAdminSchemaType = req.body;
 
          const officeId = req.user?.officeId;
-
-         //// TEMP: during development, allow creating users without office
-        
+                 
           const office = await OfficeModel.findById(officeId);
          if (!office) {
             throw new AppError("office not found", 404);

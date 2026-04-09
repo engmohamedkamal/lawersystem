@@ -7,6 +7,7 @@ import {approvePayrollSchemaType,createPayrollTransactionSchemaType,deletePayrol
 import { sendNotification } from "../task/notification.service"
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper"
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures"
+import OfficeModel from "../../DB/model/SaaSModels/Office.model"
 
 class PayrollService {
     
@@ -108,7 +109,11 @@ class PayrollService {
   createTransaction = async (req: Request, res: Response, next: NextFunction) => {
     const body: createPayrollTransactionSchemaType = req.body
 
-    assertFeatureEnabled((req as any).office, PLAN_FEATURES.PAROLE_ENABLED)
+    const officeId = req.user?.officeId;
+    const office = await OfficeModel.findById(officeId);
+    if (!office) throw new AppError("office not found", 404);
+
+    assertFeatureEnabled(office, PLAN_FEATURES.PAROLE_ENABLED)
 
     const date = body.date ? new Date(body.date) : new Date()
     const month = date.getMonth() + 1

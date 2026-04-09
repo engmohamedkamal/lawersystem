@@ -47,7 +47,7 @@ const PayrollMonthSchema = new mongoose.Schema<IPayrollMonth>(
   { timestamps: true }
 )
 
-PayrollMonthSchema.index({ month: 1, year: 1 }, { unique: true })
+PayrollMonthSchema.index({ month: 1, year: 1, officeId: 1 }, { unique: true })
 
 const PayrollMonthModel = mongoose.models.PayrollMonth || mongoose.model<IPayrollMonth>("PayrollMonth", PayrollMonthSchema)
 

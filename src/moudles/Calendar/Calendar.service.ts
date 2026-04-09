@@ -6,6 +6,8 @@ import InvoiceModel from "../../DB/model/invoice.model"
 import TaskModel from "../../DB/model/tasks.model"
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper"
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures"
+import OfficeModel from "../../DB/model/SaaSModels/Office.model"
+import { AppError } from "../../utils/classError"
 
 const TZ_OFFSET_MS = 2 * 60 * 60 * 1000
 
@@ -64,7 +66,11 @@ class CalendarService {
   constructor() {}
 
 getStats = async (req: Request, res: Response, next: NextFunction) => {
-    assertFeatureEnabled((req as any).office, PLAN_FEATURES.CALENDER_ENABLED)
+    const officeId = req.user?.officeId;
+    const office = await OfficeModel.findById(officeId);
+    if (!office) throw new AppError("office not found", 404);
+
+    assertFeatureEnabled(office, PLAN_FEATURES.CALENDER_ENABLED)
 
     const now = new Date()
     const role = req.user?.role

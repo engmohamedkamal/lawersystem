@@ -96,7 +96,7 @@ const AttachmentSchema = new mongoose.Schema<IAttachment>(
 const LegalCaseSchema = new mongoose.Schema<ILegalCase>(
   {
     officeId:      { type: Types.ObjectId, ref: "Office", required: false },
-    caseNumber:    { type: String, required: true, trim: true, unique: true },
+    caseNumber:    { type: String, required: true, trim: true },
     caseType:      { type: Types.ObjectId, ref: "CaseType",  required: true },
     client:        { type: Types.ObjectId, ref: "Client",    required: true },
     status:        { type: String, enum: CASE_STATUSES,   default: "قيد التحضير", required: true },
@@ -143,6 +143,7 @@ LegalCaseSchema.index({ client: 1, status: 1 });
 LegalCaseSchema.index({ caseType: 1, status: 1 });
 LegalCaseSchema.index({ assignedTo: 1, status: 1 });
 LegalCaseSchema.index({ isDeleted: 1, status: 1 });
+LegalCaseSchema.index({ caseNumber: 1, officeId: 1 }, { unique: true });
 
 const LegalCaseModel = mongoose.models.LegalCase || mongoose.model<ILegalCase>("LegalCase", LegalCaseSchema);
 export default LegalCaseModel;

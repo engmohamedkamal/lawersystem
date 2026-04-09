@@ -9,6 +9,7 @@ import {getLawArticlesParamsType,getReminderParamsType,deleteLawParamsType,uploa
 import pdf from "pdf-parse";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 const extractArticles = (text: string) => {
   const normalized = text
@@ -52,7 +53,12 @@ class lawReminderService {
   uploadLawPdf = async (req: Request, res: Response) => {
     const { title, category }: uploadLawBodyType = req.body;
 
-    assertFeatureEnabled((req as any).office, PLAN_FEATURES.LAW_ARTICLW_ENABLED)
+    const office = await OfficeModel.findById(req.user?.officeId);
+      if (!office) {
+      throw new AppError("office not found", 404);
+    }
+
+    assertFeatureEnabled(office, PLAN_FEATURES.LAW_ARTICLW_ENABLED)
 
     if (!req.file) {
       throw new AppError("No file uploaded", 400);

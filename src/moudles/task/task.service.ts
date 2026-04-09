@@ -8,6 +8,7 @@ import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 class taskService {
     constructor() { }
 
@@ -15,7 +16,10 @@ class taskService {
         const { title, description, assignedTo, client, legalCase, priority, dueDate } = req.body
 
         const officeId = req.user?.officeId
-        const office = (req as any).office
+        const office = await OfficeModel.findById(req.user?.officeId);
+        if (!office) {
+            throw new AppError("office not found", 404);
+        }
         assertFeatureEnabled(office, PLAN_FEATURES.TASK_ENABLED)
 
         const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER, officeId })

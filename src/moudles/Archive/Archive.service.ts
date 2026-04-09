@@ -5,6 +5,8 @@ import TaskModel from "../../DB/model/tasks.model";
 import { Role } from "../../DB/model/user.model";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
+import { AppError } from "../../utils/classError";
 
 
 class ArchiveService {
@@ -20,7 +22,12 @@ class ArchiveService {
       const role = req.user?.role
       const userId = req.user?._id  
 
-      assertFeatureEnabled((req as any).office, PLAN_FEATURES.ARCHIVE_ENABLED)
+      const office = await OfficeModel.findById(req.user?.officeId);
+          if (!office) {
+          throw new AppError("office not found", 404);
+      }
+
+      assertFeatureEnabled(office, PLAN_FEATURES.ARCHIVE_ENABLED)
 
       const {
         source,

@@ -9,13 +9,14 @@ import ClientModel from "../../DB/model/client.model";
 import { generateAllInvoicesPDF, generateInvoicePDF } from "../../utils/invoicepdf ";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 
 
 
-const generateInvoiceNumber = async (): Promise<string> => {
+const generateInvoiceNumber = async (officeId: string | Types.ObjectId): Promise<string> => {
     const year  = new Date().getFullYear()
-    const count = await InvoiceModel.countDocuments()
+    const count = await InvoiceModel.countDocuments({ officeId })
     return `INV-${year}-${String(count + 1).padStart(4, "0")}`
 }
 
@@ -143,7 +144,11 @@ class invoiceService {
             .populate("client", "fullName phone email address type")
         if (!legalCase) throw new AppError("case not found", 404)
 
-        assertFeatureEnabled((req as any).office, PLAN_FEATURES.INVOICE_ENABLED)
+        const office = await OfficeModel.findById(req.user?.officeId);
+        if (!office) {
+            throw new AppError("office not found", 404);
+        }
+        assertFeatureEnabled(office, PLAN_FEATURES.INVOICE_ENABLED)
 
         const clientId   = resolveClientId(legalCase.client)
         const discount   = data.discount   ?? 0
@@ -177,7 +182,7 @@ class invoiceService {
             }
         }
 
-        const invoiceNumber = await generateInvoiceNumber()
+        const invoiceNumber = await generateInvoiceNumber(req.user?.officeId as any)
         const status        = resolveInvoiceStatus(paidAmount, total , dueDateP )
 
         const invoice = await InvoiceModel.create({
@@ -222,7 +227,11 @@ class invoiceService {
         const client = await ClientModel.findOne({ _id: data.clientId, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
-        assertFeatureEnabled((req as any).office, PLAN_FEATURES.INVOICE_ENABLED)
+        const office = await OfficeModel.findById(req.user?.officeId);
+        if (!office) {
+            throw new AppError("office not found", 404);
+        }
+        assertFeatureEnabled(office, PLAN_FEATURES.INVOICE_ENABLED)
 
         const discount   = data.discount   ?? 0
         const tax        = data.tax        ?? 0
@@ -243,7 +252,7 @@ class invoiceService {
                 `المبلغ المدفوع (${paidAmount}) لا يمكن أن يتجاوز إجمالي الفاتورة (${total})`,400)
         }
 
-        const invoiceNumber = await generateInvoiceNumber()
+        const invoiceNumber = await generateInvoiceNumber(req.user?.officeId as any)
         const status        = resolveInvoiceStatus(paidAmount, total , dueDateP)
 
         const invoice = await InvoiceModel.create({

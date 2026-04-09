@@ -7,6 +7,7 @@ import { bookSchemaType, updateStatusType } from "./appointment.validation";
 import { getFingerprint } from "../../utils/getFingerprint";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 
 class AppointmentService {
@@ -88,7 +89,11 @@ class AppointmentService {
     getAppointments = async (req: Request, res: Response, next: NextFunction) => {
         const { status, serviceType, caseType, handledBy, page = "1", limit = "10" } = req.query
 
-        assertFeatureEnabled((req as any).office, PLAN_FEATURES.APPOINTMENTS_ENABLED)
+        const officeId = req.user?.officeId;
+        const office = await OfficeModel.findById(officeId);
+        if (!office) throw new AppError("office not found", 404);
+
+        assertFeatureEnabled(office, PLAN_FEATURES.APPOINTMENTS_ENABLED)
 
         const filter: Record<string, any> = { officeId: req.user?.officeId }
         if (status)      filter.status      = status

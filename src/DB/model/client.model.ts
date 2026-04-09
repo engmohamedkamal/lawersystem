@@ -90,7 +90,7 @@ const ClientSchema = new mongoose.Schema<IClient>(
     officeId:      { type: Types.ObjectId, ref: "Office", required: false },
     type:          { type: String, enum: CLIENT_TYPES, required: true, default: "فرد" },
     fullName:      { type: String, required: true, trim: true, maxLength: 100 },
-    crNumber:      { type: String, trim: true, required: true, unique: true },
+    crNumber:      { type: String, trim: true, required: true },
     email:         { type: String, trim: true, lowercase: true },
     phone:         { type: String, required: true, trim: true },
     address:       { type: String, trim: true, maxLength: 300 },
@@ -112,6 +112,8 @@ const ClientSchema = new mongoose.Schema<IClient>(
 ClientSchema.index({ phone: 1 });
 ClientSchema.index({ fullName: 1 });
 ClientSchema.index({ isDeleted: 1 });
+ClientSchema.index({ crNumber: 1, officeId: 1 }, { unique: true });
+
 
 ClientSchema.virtual("totalPaid").get(function () {
   return (this.extraPayments ?? []).reduce((sum: number, p: IClientExtraPayment) => sum + (p.amount ?? 0), 0)

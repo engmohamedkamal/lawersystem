@@ -34,7 +34,7 @@ export interface IUser extends mongoose.Document{
 const UserSchema = new mongoose.Schema<IUser>({
     officeId: { type: Types.ObjectId, ref: "Office", required: false },
     UserName : {type : String , required : true , minLength : 2 , maxLength : 50 ,trim : true},
-    email : {type : String , required : true , unique : true , trim : true},
+    email : {type : String , required : true , trim : true},
     password : {type : String , required : true},
     jobTitle: { type: String },
     lawyerRegistrationNo: { type: String ,  minLength : 7 , maxLength : 7  },
@@ -62,6 +62,8 @@ const UserSchema = new mongoose.Schema<IUser>({
     this.isActiveEmployee = false
    }
   })
+
+    UserSchema.index({ email: 1, officeId: 1 }, { unique: true })
 
 
     const UserModel = mongoose.models.User || mongoose.model<IUser>( "User" ,UserSchema ) 
