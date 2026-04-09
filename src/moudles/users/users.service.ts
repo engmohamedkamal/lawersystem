@@ -74,7 +74,11 @@ class usersService {
 
            if (role) {filter.role = role;}
 
-           const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ");
+          if (req.user?.officeId) {
+            filter.officeId = req.user.officeId;
+          }
+
+          const users = await UserModel.find(filter).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ");
 
            return res.status(200).json({ message: "done", users });
         };
@@ -82,7 +86,7 @@ class usersService {
     getUsersById = async (req: Request, res: Response, next: NextFunction) =>{
         const {userId} = req.params as unknown as getUserByIdParamsType
 
-        const user = await UserModel.findById(userId).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ")
+        const user = await UserModel.findOne({ _id: userId, officeId: req.user?.officeId }).select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo createdAt updatedAt isDeleted ")
 
         if (!user) {
             throw new AppError("user not found" , 404)
@@ -118,14 +122,15 @@ class usersService {
                 activeCases,
                 completedCases,
                 totalCases
-            }
+            },
+            officeId : req.user?.officeId
         });
         };
 
     getMyProfile = async (req: Request, res: Response, next: NextFunction) => {
         const userId = req.user?._id;
 
-        const user = await UserModel.findById(userId)
+        const user = await UserModel.findOne({ _id: userId, officeId: req.user?.officeId })
             .select("_id UserName email phone role jobTitle department salary employmentDate leavingDate ProfilePhoto lawyerRegistrationNo isActiveEmployee createdAt updatedAt isDeleted");
 
         if (!user) throw new AppError("user not found", 404);
@@ -160,7 +165,8 @@ class usersService {
                 activeCases,
                 completedCases,
                 totalCases
-            }
+            },
+            officeId : req.user?.officeId
         });
     };
 
@@ -187,10 +193,10 @@ class usersService {
           body.isActiveEmployee = true
         }
 
-        const user = await UserModel.findByIdAndUpdate(
-            userId,
+        const user = await UserModel.findOneAndUpdate(
+            { _id: userId, officeId: req.user?.officeId },
             {$set : body},
-            { returnDocument: "after", runValidators: true }
+            { new: true, runValidators: true }
         ).select("UserName email phone jobTitle department role lawyerRegistrationNo salary employmentDate leavingDate isActiveEmployee");
 
         if (!user) {
@@ -203,7 +209,7 @@ class usersService {
     deleteUsersByAdmin = async (req: Request, res: Response, next: NextFunction) => {
         const { userId } = req.params as unknown as deleteUserParamsType;
 
-        const user = await UserModel.findByIdAndDelete(userId).select("_id UserName email role");
+        const user = await UserModel.findOneAndDelete({ _id: userId, officeId: req.user?.officeId }).select("_id UserName email role");
 
         if (!user) throw new AppError("user not found", 404);
 
@@ -213,7 +219,7 @@ class usersService {
     hardDeleteUser = async (req: Request, res: Response, next: NextFunction) => {
         const { userId } = req.params as unknown as deleteUserParamsType;
 
-        const user = await UserModel.findByIdAndDelete(userId).select("_id UserName email role");
+        const user = await UserModel.findOneAndDelete({ _id: userId, officeId: req.user?.officeId }).select("_id UserName email role");
 
         if (!user) throw new AppError("user not found", 404);
 
@@ -224,7 +230,7 @@ class usersService {
        const { userId } = req.params as unknown as freezeUserParamsType;
 
        const result = await UserModel.updateOne(
-        { _id: userId, isDeleted: false },
+        { _id: userId, officeId: req.user?.officeId, isDeleted: false },
         {
           $set: {
             isDeleted: true,
@@ -244,7 +250,7 @@ class usersService {
        const { userId } = req.params as unknown as unfreezeUserParamsType;
 
        const result = await UserModel.updateOne(
-         { _id: userId, isDeleted: true },
+         { _id: userId, officeId: req.user?.officeId, isDeleted: true },
          {
            $set: { isDeleted: false },
            $unset: { deletedBy: 1, deletedAt: 1 },

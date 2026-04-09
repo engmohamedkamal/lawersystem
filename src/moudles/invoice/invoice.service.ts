@@ -7,6 +7,8 @@ import { CreateInvoiceType, CreateStandaloneInvoiceType, UpdateInvoiceType } fro
 import SettingsModel from "../../DB/model/settings.model";
 import ClientModel from "../../DB/model/client.model";
 import { generateAllInvoicesPDF, generateInvoicePDF } from "../../utils/invoicepdf ";
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 
 
@@ -137,9 +139,11 @@ class invoiceService {
         }
 
         const legalCase = await (LegalCaseModel as any)
-            .findOne({ _id: caseId, isDeleted: false })
+            .findOne({ _id: caseId, isDeleted: false, officeId: req.user?.officeId })
             .populate("client", "fullName phone email address type")
         if (!legalCase) throw new AppError("case not found", 404)
+
+        assertFeatureEnabled((req as any).office, PLAN_FEATURES.INVOICE_ENABLED)
 
         const clientId   = resolveClientId(legalCase.client)
         const discount   = data.discount   ?? 0
@@ -193,6 +197,7 @@ class invoiceService {
             dueDate:       parseOptionalDate(data.dueDate),
             notes:         data.notes,
             createdBy:     req.user?.id,
+            officeId:      req.user?.officeId,
         })
 
         if (paidAmount > 0) {
@@ -214,8 +219,10 @@ class invoiceService {
     createStandaloneInvoice = async (req: Request, res: Response, next: NextFunction) => {
         const data: CreateStandaloneInvoiceType = req.body
 
-        const client = await ClientModel.findOne({ _id: data.clientId, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: data.clientId, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
+
+        assertFeatureEnabled((req as any).office, PLAN_FEATURES.INVOICE_ENABLED)
 
         const discount   = data.discount   ?? 0
         const tax        = data.tax        ?? 0
@@ -256,6 +263,7 @@ class invoiceService {
             dueDate:       parseOptionalDate(data.dueDate),
             notes:         data.notes,
             createdBy:     req.user?.id,
+            officeId:      req.user?.officeId,
         })
 
         if (paidAmount > 0) {
@@ -280,7 +288,7 @@ class invoiceService {
         const { invoiceId } = req.params as { invoiceId: string }
         const data: UpdateInvoiceType = req.body
 
-        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
+        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false, officeId: req.user?.officeId })
         if (!invoice) throw new AppError("invoice not found", 404)
 
         if (invoice.status === "ملغية") {
@@ -378,7 +386,7 @@ class invoiceService {
     deleteInvoice = async (req: Request, res: Response, next: NextFunction) => {
         const { invoiceId } = req.params as { invoiceId: string }
 
-        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
+        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false, officeId: req.user?.officeId })
         if (!invoice) throw new AppError("invoice not found", 404)
 
         if (invoice.status === "ملغية") {
@@ -404,7 +412,7 @@ class invoiceService {
 
     printInvoice = async (req: Request, res: Response, next: NextFunction) => {
         const { invoiceId } = req.params
-        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
+        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false, officeId: req.user?.officeId })
             .populate("client",    "fullName phone email address type")
             .populate("legalCase", "caseNumber status court city fees")
             .populate("createdBy", "UserName")
@@ -418,7 +426,7 @@ class invoiceService {
 
     getCaseInvoices = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
-        const invoices = await InvoiceModel.find({ legalCase: id, isDeleted: false })
+        const invoices = await InvoiceModel.find({ legalCase: id, isDeleted: false, officeId: req.user?.officeId })
             .populate("client", "fullName phone")
             .sort({ createdAt: -1 })
         return res.status(200).json({ message: "success", invoices })
@@ -426,7 +434,7 @@ class invoiceService {
 
     getInvoiceById = async (req: Request, res: Response, next: NextFunction) => {
         const { invoiceId } = req.params
-        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false })
+        const invoice = await InvoiceModel.findOne({ _id: invoiceId, isDeleted: false, officeId: req.user?.officeId })
             .populate("client",    "fullName phone email address type")
             .populate("legalCase", "caseNumber status")
             .populate("createdBy", "UserName")
@@ -437,7 +445,7 @@ class invoiceService {
     printAllClientInvoices = async (req: Request, res: Response, next: NextFunction) => {
         const { clientId } = req.params as { clientId: string }
         const invoices = await InvoiceModel.find({
-            client: clientId, isDeleted: false, status: { $ne: "ملغية" }
+            client: clientId, isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" }
         })
             .populate("client",    "fullName phone email address type")
             .populate("legalCase", "caseNumber status court city fees")
@@ -455,7 +463,7 @@ class invoiceService {
  
         const now = new Date()
  
-        const filter: Record<string, any> = { isDeleted: false }
+        const filter: Record<string, any> = { isDeleted: false, officeId: req.user?.officeId }
         if (status)     filter.status     = status
         if (isFromFees !== undefined) filter.isFromFees = isFromFees === "true"
         if (client)     filter.client     = client
@@ -477,7 +485,7 @@ class invoiceService {
                 .limit(limitNum),
             InvoiceModel.countDocuments(filter),
             InvoiceModel.aggregate([
-                { $match: { isDeleted: false, status: { $ne: "ملغية" } } },
+                { $match: { isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" } } },
                 {
                     $group: {
                         _id:              null,
@@ -491,6 +499,7 @@ class invoiceService {
  
         const overdueCount = await InvoiceModel.countDocuments({
             isDeleted: false,
+            officeId:  req.user?.officeId,
             status:    { $nin: ["مدفوعة", "ملغية"] },
             dueDate:   { $lt: now },
             remaining: { $gt: 0 },
@@ -500,6 +509,7 @@ class invoiceService {
             {
                 $match: {
                     isDeleted: false,
+                    officeId:  req.user?.officeId,
                     status:    { $nin: ["مدفوعة", "ملغية"] },
                     dueDate:   { $lt: now },
                     remaining: { $gt: 0 },

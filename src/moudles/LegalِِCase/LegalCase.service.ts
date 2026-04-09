@@ -8,6 +8,8 @@ import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import SessionModel from "../../DB/model/session.model";
 import { sendNotification } from "../task/notification.service";
+import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 class LegalCaseService {
     constructor() {}
@@ -15,10 +17,16 @@ class LegalCaseService {
     createCase = async (req: Request, res: Response, next: NextFunction) => {
         const  caseData : CreateCaseType = req.body
 
-        const existing = await LegalCaseModel.findOne({ caseNumber: caseData.caseNumber })
+        const officeId = req.user?.officeId
+        const office = (req as any).office
+
+        const casesCount = await LegalCaseModel.countDocuments({ officeId, isDeleted: false })
+        assertFeatureLimitNotReached(office, PLAN_FEATURES.LEGALCASE_MAX, casesCount)
+
+        const existing = await LegalCaseModel.findOne({ caseNumber: caseData.caseNumber, officeId })
         if (existing) throw new AppError("case number already exists", 409)
 
-        const client = await ClientModel.findOne({ _id: caseData.client, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: caseData.client, isDeleted: false, officeId })
         if (!client) throw new AppError("client not found", 404)
 
         if (caseData.fees) {
@@ -29,6 +37,7 @@ class LegalCaseService {
         const legalCase = await LegalCaseModel.create({
             ...caseData,
             createdBy: req.user?.id,
+            officeId,
         })
 
         const populated = await LegalCaseModel.findById(legalCase._id)
@@ -65,7 +74,7 @@ class LegalCaseService {
         const userId = req.user?.id
         const role   = req.user?.role
 
-        const filter: Record<string, any> = { isDeleted: false }
+        const filter: Record<string, any> = { isDeleted: false, officeId: req.user?.officeId }
         if (status)     filter.status   = status
         if (caseType)   filter.caseType = caseType
         if (priority)   filter.priority = priority
@@ -116,6 +125,7 @@ class LegalCaseService {
 
         const filter: Record<string, any> = { 
             isDeleted: false,
+            officeId: req.user?.officeId,
             $or: [
                 { assignedTo: lawyerId },
                 { team: lawyerId },
@@ -156,7 +166,7 @@ class LegalCaseService {
         const role   = req.user?.role
         const userId = req.user?.id
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
             .populate("client",     "fullName phone type email address")
             .populate("caseType",   "name")
             .populate("assignedTo", "UserName email")
@@ -192,19 +202,19 @@ class LegalCaseService {
         const { id } = req.params
         const data: UpdateCaseType = req.body
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
         if (legalCase.status === "مؤرشفة") throw new AppError("cannot update an archived case", 400)
 
         if (data.caseNumber && data.caseNumber !== legalCase.caseNumber) {
-            const existing = await LegalCaseModel.findOne({ caseNumber: data.caseNumber })
+            const existing = await LegalCaseModel.findOne({ caseNumber: data.caseNumber, officeId: req.user?.officeId })
             if (existing) throw new AppError("case number already exists", 409)
         }
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $set: data },
-            { returnDocument: "after" }
+            { new: true }
         ).populate("caseType", "name").populate("assignedTo", "UserName email")
 
         return res.status(200).json({ message: "Case updated successfully", case: updated })
@@ -214,7 +224,7 @@ class LegalCaseService {
         const { id } = req.params
         const data: UpdateFeesType = req.body
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
         const totalAmount = data.totalAmount ?? legalCase.fees?.totalAmount ?? 0
@@ -222,10 +232,10 @@ class LegalCaseService {
 
         const paymentStatus = data.paymentStatus ?? calcPaymentStatus(totalAmount, paidAmount)
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $set: { fees: { ...legalCase.fees?.toObject?.() ?? {}, ...data, paymentStatus } } },
-            { returnDocument: "after" }
+            { new: true }
         )
 
         return res.status(200).json({ message: "Fees updated successfully", case: updated })
@@ -235,15 +245,15 @@ class LegalCaseService {
         const { id } = req.params
         const { userId }: UpdateTeamType = req.body
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
         if (legalCase.team.map((t: { toString(): string }) => t.toString()).includes(userId)) {
             throw new AppError("user already in team", 409)
         }
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $push: { team: userId } },
             { new: true }
         ).populate("team", "UserName email")
@@ -255,15 +265,15 @@ class LegalCaseService {
         const { id }  = req.params
         const { userId }: UpdateTeamType = req.body
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
        if (!legalCase.team.map((t: any) => t.toString()).includes(userId)) {
            throw new AppError("user not in team", 404)
        }
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $pull: { team: userId } },
             { new: true }
         ).populate("team", "UserName email")
@@ -275,7 +285,7 @@ class LegalCaseService {
         const { id } = req.params
         if (!req.file) throw new AppError("No file uploaded", 400)
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
         const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
@@ -294,8 +304,8 @@ class LegalCaseService {
             finalPublicId
         )
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             {
                 $push: {
                     attachments: {
@@ -316,7 +326,7 @@ class LegalCaseService {
         const { id }  = req.params
         const { publicId } = req.body
 
-        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false })
+        const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
         const attachment = legalCase.attachments.find((a: { publicId: string }) => a.publicId === decodeURIComponent(publicId))
@@ -324,8 +334,8 @@ class LegalCaseService {
 
         await cloudinary.uploader.destroy(attachment.publicId)
 
-        const updated = await LegalCaseModel.findByIdAndUpdate(
-            id,
+        const updated = await LegalCaseModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $pull: { attachments: { publicId: attachment.publicId } } },
             { new: true }
         )
@@ -336,11 +346,11 @@ class LegalCaseService {
     deleteCase = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
 
-        const LegalCase = await LegalCaseModel.findOne({ _id : id , isDeleted : false})
+        const LegalCase = await LegalCaseModel.findOne({ _id : id , isDeleted : false, officeId: req.user?.officeId})
 
         if(!LegalCase) throw new AppError("case not found", 404)
 
-        await LegalCaseModel.findByIdAndUpdate(id , {
+        await LegalCaseModel.findOneAndUpdate({ _id: id, officeId: req.user?.officeId } , {
             isDeleted : true,
             DeletedAt : Date.now(),
             DeletedBy : req.user?.id

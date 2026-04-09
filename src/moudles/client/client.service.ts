@@ -7,6 +7,8 @@ import * as ExcelJS from "exceljs"
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import InvoiceModel from "../../DB/model/invoice.model";
+import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 class ClientService {
     constructor() {}
@@ -16,14 +18,15 @@ class ClientService {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
         const [totalClients, newThisMonth, activeClientIds, pendingFromCases , pendingFromInvoices] = await Promise.all([
-            ClientModel.countDocuments({ isDeleted: false }),
-            ClientModel.countDocuments({ isDeleted: false, createdAt: { $gte: startOfMonth } }),
+            ClientModel.countDocuments({ isDeleted: false, officeId: req.user?.officeId }),
+            ClientModel.countDocuments({ isDeleted: false, officeId: req.user?.officeId, createdAt: { $gte: startOfMonth } }),
             LegalCaseModel.distinct("client", {
                 isDeleted: false,
+                officeId: req.user?.officeId,
                 status: { $nin: ["منتهية", "مؤرشفة"] },
             }),
             LegalCaseModel.aggregate([
-                { $match: { isDeleted: false, "fees.paymentStatus": { $ne: "سُدد بالكامل" } } },
+                { $match: { isDeleted: false, officeId: req.user?.officeId, "fees.paymentStatus": { $ne: "سُدد بالكامل" } } },
                 {
                   $project: {
                     remaining: {
@@ -34,7 +37,7 @@ class ClientService {
                 { $group: { _id: null, total: { $sum: "$remaining" } } },
               ]),
               InvoiceModel.aggregate([
-                { $match: { isDeleted: false, status: { $ne: "ملغية" }, isFromFees: false } },
+                { $match: { isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" }, isFromFees: false } },
                 { $group: { _id: null, total: { $sum: "$remaining" } } },
             ]),
         ])
@@ -42,6 +45,7 @@ class ClientService {
         const activeClients = await ClientModel.countDocuments({
             _id:       { $in: activeClientIds },
             isDeleted: false,
+            officeId:  req.user?.officeId,
         })
 
         return res.status(200).json({
@@ -58,15 +62,20 @@ class ClientService {
     createClient = async (req: Request, res: Response, next: NextFunction) => {
         const data: CreateClientType = req.body
 
-        const check = await ClientModel.findOne({ crNumber : data.crNumber } )
+        const check = await ClientModel.findOne({ crNumber : data.crNumber, officeId: req.user?.officeId } )
 
         if (check) {
             throw new AppError("client already exist" , 404)
         }
 
+        const office = (req as any).office
+        const clientsCount = await ClientModel.countDocuments({ officeId: req.user?.officeId, isDeleted: false })
+        assertFeatureLimitNotReached(office, PLAN_FEATURES.CLIENT_MAX, clientsCount)
+
         const client = await ClientModel.create({
             ...data,
             createdBy: req.user?.id,
+            officeId: req.user?.officeId,
         })
 
         return res.status(201).json({ message: "Client created successfully", client })
@@ -75,7 +84,7 @@ class ClientService {
     getClients = async (req: Request, res: Response, next: NextFunction) => {
         const { search, type, page = "1", limit = "10" } = req.query
  
-        const filter: Record<string, any> = { isDeleted: false }
+        const filter: Record<string, any> = { isDeleted: false, officeId: req.user?.officeId }
         if (type) filter.type = type
         if (search) {
             filter.$or = [
@@ -101,7 +110,7 @@ class ClientService {
 
         const [caseCounts, invoiceSums] = await Promise.all([
             LegalCaseModel.aggregate([
-            { $match: { isDeleted: false } },  
+            { $match: { isDeleted: false, officeId: req.user?.officeId } },  
             {
                 $group: {
                     _id:           "$client",
@@ -113,7 +122,7 @@ class ClientService {
             },
         ]),
             InvoiceModel.aggregate([
-                { $match: { client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } , isFromFees : false } },
+                { $match: { client: { $in: clientIds }, isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" } , isFromFees : false } },
                 { $group: { _id: "$client", totalDue: { $sum: "$remaining" } }},
             ]),
         ])
@@ -150,11 +159,11 @@ class ClientService {
     getClientById = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
  
-        const client = await ClientModel.findOne({ _id: id, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
             .populate("createdBy", "UserName email")
         if (!client) throw new AppError("client not found", 404)
  
-        const cases = await LegalCaseModel.find({ client: id, isDeleted: false })
+        const cases = await LegalCaseModel.find({ client: id, isDeleted: false, officeId: req.user?.officeId })
             .populate("caseType",   "name")
             .populate("assignedTo", "UserName email")
             .select("caseNumber status caseType openedAt assignedTo fees extraPayments")
@@ -169,6 +178,7 @@ class ClientService {
         const invoices = await InvoiceModel.find({
             client:    id,
             isDeleted: false,
+            officeId:  req.user?.officeId,
             status:    { $ne: "ملغية" },
         }).select("invoiceNumber total paidAmount remaining status isFromFees discount tax legalCase issueDate")
  
@@ -263,11 +273,11 @@ class ClientService {
         const { id } = req.params
         const data: UpdateClientType = req.body
 
-        const client = await ClientModel.findOne({ _id: id, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
-        const updated = await ClientModel.findByIdAndUpdate(
-            id,
+        const updated = await ClientModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $set: data },
             { new: true }
         )
@@ -280,7 +290,7 @@ class ClientService {
         const { id } = req.params
         if (!req.file) throw new AppError("No file uploaded", 400)
 
-        const client = await ClientModel.findOne({ _id: id, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
 
@@ -324,7 +334,7 @@ class ClientService {
         const { id } = req.params as { id : string }
         const { publicId } = req.body
 
-        const client = await ClientModel.findOne({ _id: id, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
         const doc = client.documents.find((d: { publicId: string }) => d.publicId === decodeURIComponent(publicId))
@@ -332,8 +342,8 @@ class ClientService {
 
         await cloudinary.uploader.destroy(doc.publicId)
 
-        const updated = await ClientModel.findByIdAndUpdate(
-            id,
+        const updated = await ClientModel.findOneAndUpdate(
+            { _id: id, officeId: req.user?.officeId },
             { $pull: { documents: { publicId: doc.publicId } } },
             { new: true }
         )
@@ -344,10 +354,10 @@ class ClientService {
     deleteClient = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
 
-        const client = await ClientModel.findOne({ _id: id, isDeleted: false })
+        const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
-        await ClientModel.findByIdAndUpdate(id, {
+        await ClientModel.findOneAndUpdate({ _id: id, officeId: req.user?.officeId }, {
             isDeleted: true,
             deletedAt: new Date(),
             deletedBy: req.user?.id,
@@ -358,10 +368,10 @@ class ClientService {
 
     unDeleteClient = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
-        const client = await ClientModel.findById(id)
+        const client = await ClientModel.findOne({ _id: id, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404) 
         if (!client.isDeleted) throw new AppError("client is not deleted", 400)
-        await ClientModel.findByIdAndUpdate(id, {
+        await ClientModel.findOneAndUpdate({ _id: id, officeId: req.user?.officeId }, {
         isDeleted: false,
         $unset: { deletedAt: 1, deletedBy: 1 },
         })
@@ -372,7 +382,7 @@ class ClientService {
     exportToExcel = async (req: Request, res: Response, next: NextFunction) => {
  
         // ── جلب كل البيانات ───────────────────────────────────────────────
-        const clients = await ClientModel.find({ isDeleted: false })
+        const clients = await ClientModel.find({ isDeleted: false, officeId: req.user?.officeId })
             .populate("createdBy", "UserName")
  
         const clientIds = clients.map(c => c._id)

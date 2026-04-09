@@ -3,6 +3,8 @@ import LegalCaseModel from "../../DB/model/LegalCase.model";
 import ClientModel from "../../DB/model/client.model";
 import TaskModel from "../../DB/model/tasks.model";
 import { Role } from "../../DB/model/user.model";
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 
 class ArchiveService {
@@ -17,6 +19,9 @@ class ArchiveService {
     try {
       const role = req.user?.role
       const userId = req.user?._id  
+
+      assertFeatureEnabled((req as any).office, PLAN_FEATURES.ARCHIVE_ENABLED)
+
       const {
         source,
         search,
@@ -41,6 +46,7 @@ class ArchiveService {
       if (!source || source === "case") {
         const caseFilter: any = {
           isDeleted: false,
+          officeId: req.user?.officeId,
           "attachments.0": { $exists: true },
         }
 
@@ -74,6 +80,7 @@ class ArchiveService {
       if (!isLawyer && (!source || source === "client")) {
         const clients = await ClientModel.find({
           isDeleted: false,
+          officeId: req.user?.officeId,
           "documents.0": { $exists: true },
         })
           .select("fullName documents")
@@ -100,6 +107,7 @@ class ArchiveService {
       if (!source || source === "task") {
         const taskFilter: any = {
           isDeleted: false,
+          officeId: req.user?.officeId,
           "attachments.0": { $exists: true },
         }
 

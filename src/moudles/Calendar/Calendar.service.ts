@@ -4,6 +4,8 @@ import SessionModel from "../../DB/model/session.model"
 import { Role } from "../../DB/model/user.model"
 import InvoiceModel from "../../DB/model/invoice.model"
 import TaskModel from "../../DB/model/tasks.model"
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper"
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures"
 
 const TZ_OFFSET_MS = 2 * 60 * 60 * 1000
 
@@ -62,6 +64,8 @@ class CalendarService {
   constructor() {}
 
 getStats = async (req: Request, res: Response, next: NextFunction) => {
+    assertFeatureEnabled((req as any).office, PLAN_FEATURES.CALENDER_ENABLED)
+
     const now = new Date()
     const role = req.user?.role
     const userId = req.user?.id
@@ -76,6 +80,7 @@ getStats = async (req: Request, res: Response, next: NextFunction) => {
     const [overdueInvoices, upcomingAppointments, sessionsThisWeek] = await Promise.all([
       InvoiceModel.countDocuments({
         isDeleted: false,
+        officeId: req.user?.officeId,
         status: { $nin: ["مدفوعة", "ملغية"] },
         dueDate: { $lt: now },
         remaining: { $gt: 0 },
@@ -83,12 +88,14 @@ getStats = async (req: Request, res: Response, next: NextFunction) => {
 
       AvailabilitySlotModel.countDocuments({
         status: "BOOKED",
+        officeId: req.user?.officeId,
         startAt: { $gte: now },
         appointment: { $exists: true, $ne: null },
       }),
 
       SessionModel.countDocuments({
         isDeleted: false,
+        officeId: req.user?.officeId,
         status: "مجدولة",
         startAt: { $gte: weekStart, $lte: weekEnd },
         ...(isLawyer && lawyerFilter(userId!)),
@@ -133,6 +140,7 @@ getRange = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("sessions")
         ? SessionModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             startAt: { $gte: start, $lte: end },
             ...(isLawyer && lawyerFilter(userId!)),
             ...(s && {
@@ -155,6 +163,7 @@ getRange = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("tasks")
         ? TaskModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             dueDate: { $gte: start, $lte: end },
             ...(isLawyer && { assignedTo: userId }),
             ...(s && { title: { $regex: s, $options: "i" } }),
@@ -167,6 +176,7 @@ getRange = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("invoices")
         ? InvoiceModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             status: { $nin: ["مدفوعة", "ملغية"] },
             dueDate: { $gte: start, $lte: end },
             remaining: { $gt: 0 },
@@ -185,6 +195,7 @@ getRange = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("appointments")
         ? AvailabilitySlotModel.find({
             status: "BOOKED",
+            officeId: req.user?.officeId,
             startAt: { $gte: start, $lte: end },
             appointment: { $exists: true, $ne: null },
           })
@@ -344,6 +355,7 @@ getDay = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("sessions")
         ? SessionModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             startAt: { $gte: dayStart, $lte: dayEnd },
             ...(isLawyer && lawyerFilter(userId!)),
             ...(s && {
@@ -363,6 +375,7 @@ getDay = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("tasks")
         ? TaskModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             dueDate: { $gte: dayStart, $lte: dayEnd },
             ...(isLawyer && { assignedTo: userId }),
             ...(s && { title: { $regex: s, $options: "i" } }),
@@ -376,6 +389,7 @@ getDay = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("invoices")
         ? InvoiceModel.find({
             isDeleted: false,
+            officeId: req.user?.officeId,
             status: { $nin: ["مدفوعة", "ملغية"] },
             dueDate: { $gte: dayStart, $lte: dayEnd },
             remaining: { $gt: 0 },
@@ -395,6 +409,7 @@ getDay = async (req: Request, res: Response, next: NextFunction) => {
       types.includes("appointments")
         ? AvailabilitySlotModel.find({
             status: "BOOKED",
+            officeId: req.user?.officeId,
             startAt: { $gte: dayStart, $lte: dayEnd },
             appointment: { $exists: true, $ne: null },
           })

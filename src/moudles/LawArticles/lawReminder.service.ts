@@ -7,6 +7,8 @@ import LawArticleModel from "../../DB/model/lawArticle.model";
 import UserLawReminderModel from "../../DB/model/userLawReminder.model";
 import {getLawArticlesParamsType,getReminderParamsType,deleteLawParamsType,uploadLawBodyType,} from "./lawReminder.validation";
 import pdf from "pdf-parse";
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 const extractArticles = (text: string) => {
   const normalized = text
@@ -50,6 +52,8 @@ class lawReminderService {
   uploadLawPdf = async (req: Request, res: Response) => {
     const { title, category }: uploadLawBodyType = req.body;
 
+    assertFeatureEnabled((req as any).office, PLAN_FEATURES.LAW_ARTICLW_ENABLED)
+
     if (!req.file) {
       throw new AppError("No file uploaded", 400);
     }
@@ -81,6 +85,7 @@ class lawReminderService {
       fileUrl: uploadResult.secure_url,
       filePublicId: uploadResult.public_id,
       createdBy: req.user?._id,
+      officeId: req.user?.officeId,
     });
 
     try {
@@ -116,7 +121,7 @@ class lawReminderService {
       limit?: string;
     };
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { officeId: req.user?.officeId };
     if (category) filter.category = category;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -142,7 +147,7 @@ class lawReminderService {
   getLawArticles = async (req: Request, res: Response) => {
     const { lawId }: getLawArticlesParamsType = req.params as any;
 
-    const law = await LawModel.findById(lawId);
+    const law = await LawModel.findOne({ _id: lawId, officeId: req.user?.officeId });
     if (!law) throw new AppError("law not found", 404);
 
     const articles = await LawArticleModel.find({ lawId })
@@ -156,7 +161,7 @@ class lawReminderService {
     const { lawId }: getReminderParamsType = req.params as any;
     const userId = req.user?._id;
 
-    const law = await LawModel.findById(lawId);
+    const law = await LawModel.findOne({ _id: lawId, officeId: req.user?.officeId });
     if (!law) throw new AppError("law not found", 404);
 
     const articles = await LawArticleModel.find({ lawId })
@@ -211,7 +216,7 @@ class lawReminderService {
   deleteLaw = async (req: Request, res: Response) => {
     const { lawId }: deleteLawParamsType = req.params as any;
 
-    const law = await LawModel.findById(lawId);
+    const law = await LawModel.findOne({ _id: lawId, officeId: req.user?.officeId });
     if (!law) throw new AppError("law not found", 404);
 
     if (law.filePublicId) {
@@ -232,7 +237,7 @@ class lawReminderService {
   };
 
   getLawsDropdown = async (req: Request, res: Response) => {
-    const laws = await LawModel.find()
+    const laws = await LawModel.find({ officeId: req.user?.officeId })
       .sort({ createdAt: -1 })
       .select("_id title category fileUrl");
 

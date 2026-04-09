@@ -5,8 +5,8 @@ export const createTaskSchema = {
     body: z.object({
         title:       z.string().min(2).max(300),
         description: z.string().max(2000).optional(),
-        assignedTo:  z.string().length(24),
-        client:      z.string().length(24),
+        assignedTo:  z.string().length(24).optional(),
+        client:      z.string().length(24).optional(),
         legalCase:   z.string().length(24).optional(),
         priority:    z.enum([...TASK_PRIORITIES] as [string, ...string[]]).optional(),
         dueDate:     z.string().optional(),
@@ -20,8 +20,8 @@ export const updateTaskSchema = {
     body: z.object({
         title:       z.string().min(2).max(300).optional(),
         description: z.string().max(2000).optional(),
-        assignedTo:  z.string().length(24).optional(),
-        client:      z.string().length(24),
+        assignedTo:  z.string().length(24),
+        client:      z.string().length(24).optional(),
         legalCase:   z.string().length(24).optional(),
         priority:    z.enum([...TASK_PRIORITIES] as [string, ...string[]]).optional(),
         status:      z.enum([...TASK_STATUSES]   as [string, ...string[]]).optional(),

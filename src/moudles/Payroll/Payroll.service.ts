@@ -5,6 +5,8 @@ import PayrollMonthModel, { PayrollMonthStatus } from "../../DB/model/PayrollMon
 import { AppError } from "../../utils/classError"
 import {approvePayrollSchemaType,createPayrollTransactionSchemaType,deletePayrollTransactionParamsType,getPayrollEmployeeHistoryParamsType,getPayrollEmployeeParamsType,getPayrollEmployeeSchemaType,getPayrollMonthlySchemaType,updatePayrollTransactionParamsType,updatePayrollTransactionSchemaType,} from "./payroll.validation"
 import { sendNotification } from "../task/notification.service"
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper"
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures"
 
 class PayrollService {
     
@@ -105,13 +107,16 @@ class PayrollService {
 
   createTransaction = async (req: Request, res: Response, next: NextFunction) => {
     const body: createPayrollTransactionSchemaType = req.body
+
+    assertFeatureEnabled((req as any).office, PLAN_FEATURES.PAROLE_ENABLED)
+
     const date = body.date ? new Date(body.date) : new Date()
     const month = date.getMonth() + 1
     const year = date.getFullYear()
 
     await this.ensureMonthEditable(month, year)
 
-    const employee = await UserModel.findById(body.employee)
+    const employee = await UserModel.findOne({ _id: body.employee, officeId: req.user?.officeId })
     if (!employee) throw new AppError("employee not found", 404)
     if (employee.role === Role.ADMIN) throw new AppError("admin is excluded from payroll", 400)
 
@@ -126,6 +131,7 @@ class PayrollService {
       advanceMode: body.advanceMode,
       installmentMonths: body.installmentMonths,
       createdBy: req.user?._id,
+      officeId: req.user?.officeId,
     })
 
     const typeTranslations: Record<string, string> = {
@@ -156,7 +162,7 @@ class PayrollService {
         const month = Number(req.query.month)
         const year  = Number(req.query.year)
  
-        const users = await UserModel.find({ role: { $ne: Role.ADMIN } })
+        const users = await UserModel.find({ role: { $ne: Role.ADMIN }, officeId: req.user?.officeId })
             .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee")
             .lean()
  
@@ -209,7 +215,7 @@ class PayrollService {
     const month = Number(req.query.month)
     const year  = Number(req.query.year)
 
-    const user = await UserModel.findById(userId)
+    const user = await UserModel.findOne({ _id: userId, officeId: req.user?.officeId })
       .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee").lean()
 
     if (!user) throw new AppError("employee not found", 404)
@@ -228,7 +234,7 @@ class PayrollService {
   getEmployeePayrollHistory = async (req: Request, res: Response, next: NextFunction) => {
         const { userId } = req.params as unknown as getPayrollEmployeeHistoryParamsType
  
-        const user = await UserModel.findById(userId)
+        const user = await UserModel.findOne({ _id: userId, officeId: req.user?.officeId })
             .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee")
             .lean()
  
@@ -295,7 +301,7 @@ class PayrollService {
       { upsert: true, new: true }
     )
 
-    const users = await UserModel.find({ role: { $ne: Role.ADMIN } })
+    const users = await UserModel.find({ role: { $ne: Role.ADMIN }, officeId: req.user?.officeId })
       .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee")
       .lean()
       
@@ -364,6 +370,7 @@ class PayrollService {
 
     const users = await UserModel.find({
       role: { $ne: Role.ADMIN },
+      officeId: req.user?.officeId,
     })
       .select("UserName email phone role jobTitle department salary employmentDate leavingDate isActiveEmployee")
       .lean()

@@ -13,7 +13,7 @@ export interface ITask extends mongoose.Document {
     description?: string
     assignedTo:  Types.ObjectId       
     assignedBy:  Types.ObjectId
-    client:      Types.ObjectId
+    client?:      Types.ObjectId
     legalCase?:  Types.ObjectId   
     status:      TaskStatus
     priority:    TaskPriority

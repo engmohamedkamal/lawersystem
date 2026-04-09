@@ -7,6 +7,8 @@ import SessionModel from "../../DB/model/session.model";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import mongoose from "mongoose";
+import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 const notifySessionParticipants = async (
     session:    any,
@@ -57,17 +59,23 @@ class sessionService {
             notes, assignedTo, team,
         } = req.body
  
-        const legalCase = await LegalCaseModel.findOne({ _id: legalCaseId, isDeleted: false })
+        const officeId = req.user?.officeId
+        const office = (req as any).office
+
+        const sessionsCount = await SessionModel.countDocuments({ officeId, isDeleted: false })
+        assertFeatureLimitNotReached(office, PLAN_FEATURES.SESSION_MAX, sessionsCount)
+
+        const legalCase = await LegalCaseModel.findOne({ _id: legalCaseId, isDeleted: false, officeId })
             .populate("client", "fullName")
             .populate("assignedTo","UserName")
             .populate("team", "UserName")
         if (!legalCase) throw new AppError("legal case not found", 404)
  
-        const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER })
+        const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER, officeId })
         if (!lawyer) throw new AppError("assigned lawyer not found", 404)
  
         if (team?.length) {
-            const teamMembers = await UserModel.find({ _id: { $in: team }, isDeleted: false })
+            const teamMembers = await UserModel.find({ _id: { $in: team }, isDeleted: false, officeId })
             if (teamMembers.length !== team.length) {
                 throw new AppError("one or more team members not found", 404)
             }
@@ -86,6 +94,7 @@ class sessionService {
             assignedTo,
             team:      team ?? [],
             createdBy: req.user?.id,
+            officeId,
         })
  
         const populated = await SessionModel.findById(session._id)
@@ -114,12 +123,13 @@ class sessionService {
  
         const legalCase = await LegalCaseModel.findOne({
             _id:legalCaseId,
-            isDeleted: false
+            isDeleted: false,
+            officeId: req.user?.officeId
         })
 
         if(!legalCase)throw new AppError("case not found", 404)
 
-        const filter: any = { legalCase: legalCaseId , isDeleted: false}
+        const filter: any = { legalCase: legalCaseId , isDeleted: false, officeId: req.user?.officeId}
 
         if (status) filter.status = status
  
@@ -150,7 +160,7 @@ class sessionService {
     getSessionById = async (req: Request, res: Response, next: NextFunction) => {
         const { sessionId } = req.params
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
             .populate("legalCase",  "caseNumber status client court city")
             .populate("assignedTo", "UserName email phone ProfilePhoto")
             .populate("team",       "UserName email phone ProfilePhoto")
@@ -172,7 +182,7 @@ class sessionService {
         const { sessionId } = req.params
         const data          = req.body
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
  
         if (session.status === "ملغية") throw new AppError("cannot update a cancelled session", 400)
@@ -180,8 +190,8 @@ class sessionService {
         if (data.startAt) data.startAt = new Date(data.startAt)
         if (data.endAt)   data.endAt   = new Date(data.endAt)
  
-        const updated = await SessionModel.findByIdAndUpdate(
-            sessionId,
+        const updated = await SessionModel.findOneAndUpdate(
+            { _id: sessionId, officeId: req.user?.officeId },
             { $set: data },
             { new: true }
         )
@@ -196,15 +206,15 @@ class sessionService {
         const { sessionId } = req.params
         const { status, result, nextSessionAt } = req.body
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
  
         const updateData: any = { status }
         if (result) updateData.result        = result
         if (nextSessionAt) updateData.nextSessionAt = new Date(nextSessionAt)
  
-        const updated = await SessionModel.findByIdAndUpdate(
-            sessionId,
+        const updated = await SessionModel.findOneAndUpdate(
+            { _id: sessionId, officeId: req.user?.officeId },
             { $set: updateData },
             { new: true }
         )
@@ -216,7 +226,7 @@ class sessionService {
         const { sessionId } = req.params
         if (!req.file) throw new AppError("No file uploaded", 400)
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
  
         const ext     = req.file.originalname.split(".").pop()?.toLowerCase() || ""
@@ -236,8 +246,8 @@ class sessionService {
         )
  
     
-        const updated = await SessionModel.findByIdAndUpdate(
-            sessionId,
+        const updated = await SessionModel.findOneAndUpdate(
+            { _id: sessionId, officeId: req.user?.officeId },
             {
                 $push: {
                     attachments: {
@@ -258,7 +268,7 @@ class sessionService {
         const { sessionId } = req.params
         const { publicId }  = req.body
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
  
         const attachment = session.attachments.find(
@@ -268,8 +278,8 @@ class sessionService {
  
         await cloudinary.uploader.destroy(attachment.publicId)
  
-        const updated = await SessionModel.findByIdAndUpdate(
-            sessionId,
+        const updated = await SessionModel.findOneAndUpdate(
+            { _id: sessionId, officeId: req.user?.officeId },
             { $pull: { attachments: { publicId: attachment.publicId } } },
             { new: true }
         )
@@ -280,10 +290,10 @@ class sessionService {
     deleteSession = async (req: Request, res: Response, next: NextFunction) => {
         const { sessionId } = req.params
  
-        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false })
+        const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
  
-        await SessionModel.findByIdAndUpdate(sessionId, {
+        await SessionModel.findOneAndUpdate({ _id: sessionId, officeId: req.user?.officeId }, {
             isDeleted: true,
             deletedAt: new Date(),
             deletedBy: req.user?.id,
@@ -298,6 +308,7 @@ class sessionService {
  
         const filter: any = {
             isDeleted: false,
+            officeId: req.user?.officeId,
             $or: [{ assignedTo: userId }, { team: userId }],
         }
         if (status) filter.status = status
@@ -329,7 +340,7 @@ class sessionService {
     getAllSessions = async (req: Request, res: Response, next: NextFunction) => {
         const { status, page = "1", limit = "10" } = req.query;
  
-        const filter: any = { isDeleted: false };
+        const filter: any = { isDeleted: false, officeId: req.user?.officeId };
         
         if (req.user?.role === Role.LAWYER) {
             filter.$or = [{ assignedTo: req.user?.id }, { team: req.user?.id }];

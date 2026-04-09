@@ -6,18 +6,24 @@ import { sendNotification } from "./notification.service";
 import ClientModel from "../../DB/model/client.model";
 import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 class taskService {
     constructor() { }
 
     createTask = async (req: Request, res: Response, next: NextFunction) => {
         const { title, description, assignedTo, client, legalCase, priority, dueDate } = req.body
 
-        const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER })
+        const officeId = req.user?.officeId
+        const office = (req as any).office
+        assertFeatureEnabled(office, PLAN_FEATURES.TASK_ENABLED)
+
+        const lawyer = await UserModel.findOne({ _id: assignedTo, isDeleted: false, role: Role.LAWYER, officeId })
         if (!lawyer) throw new AppError("المحامي غير موجود", 404)
 
         let clientDoc = null
         if (client) {
-            clientDoc = await ClientModel.findOne({ _id: client, isDeleted: false })
+            clientDoc = await ClientModel.findOne({ _id: client, isDeleted: false, officeId })
             if (!clientDoc) throw new AppError("العميل غير موجود", 404)
         }
 
@@ -33,7 +39,8 @@ class taskService {
             legalCase: legalCase ?? undefined,
             priority,
             dueDate: dueDate ? new Date(dueDate) : undefined,
-            attachments
+            attachments,
+            officeId,
         })
 
         if (req.file) {
@@ -94,7 +101,7 @@ class taskService {
         const role = req.user?.role
         const userId = req.user?.id
 
-        const filter: Record<string, any> = { isDeleted: false }
+        const filter: Record<string, any> = { isDeleted: false, officeId: req.user?.officeId }
 
         if (role === Role.LAWYER) {
             filter.assignedTo = userId
@@ -143,7 +150,7 @@ class taskService {
         const { userId } = req.params
         const { status, page = "1", limit = "10" } = req.query
 
-        const filter: Record<string, any> = { assignedTo: userId, isDeleted: false }
+        const filter: Record<string, any> = { assignedTo: userId, isDeleted: false, officeId: req.user?.officeId }
         if (status) filter.status = status
 
         const pageNum = Math.max(Number(page), 1)
@@ -162,9 +169,9 @@ class taskService {
         ])
 
         const [pending, completed, overdue] = await Promise.all([
-            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, status: "قيد التنفيذ" }),
-            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, status: "مكتملة" }),
-            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, status: "متأخرة" }),
+            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, officeId: req.user?.officeId, status: "قيد التنفيذ" }),
+            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, officeId: req.user?.officeId, status: "مكتملة" }),
+            TaskModel.countDocuments({ assignedTo: userId, isDeleted: false, officeId: req.user?.officeId, status: "متأخرة" }),
         ])
 
         return res.status(200).json({
@@ -182,7 +189,7 @@ class taskService {
         const role = req.user?.role
         const userId = req.user?.id
 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false, officeId: req.user?.officeId })
             .populate("assignedTo", "UserName email ProfilePhoto jobTitle")
             .populate("assignedBy", "UserName email")
             .populate("client", "fullName phone type")
@@ -201,11 +208,11 @@ class taskService {
         const taskId = req.params.taskId as string
         const data = req.body
 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false, officeId: req.user?.officeId })
         if (!task) throw new AppError("المهمة غير موجودة", 404)
 
-        const updated = await TaskModel.findByIdAndUpdate(
-            taskId,
+        const updated = await TaskModel.findOneAndUpdate(
+            { _id: taskId, officeId: req.user?.officeId },
             { $set: data },
             { new: true }
         )
@@ -231,15 +238,15 @@ class taskService {
         const role = req.user?.role
         const userId = req.user?.id
 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false, officeId: req.user?.officeId })
         if (!task) throw new AppError("المهمة غير موجودة", 404)
 
         if (role === Role.LAWYER && task.assignedTo?.toString() !== userId) {
             throw new AppError("غير مصرح", 403)
         }
 
-        const updated = await TaskModel.findByIdAndUpdate(
-            taskId,
+        const updated = await TaskModel.findOneAndUpdate(
+            { _id: taskId, officeId: req.user?.officeId },
             { $set: { status } },
             { new: true }
         )
@@ -260,10 +267,10 @@ class taskService {
     deleteTask = async (req: Request, res: Response, next: NextFunction) => {
         const taskId = req.params.taskId as string
 
-        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false })
+        const task = await TaskModel.findOne({ _id: taskId, isDeleted: false, officeId: req.user?.officeId })
         if (!task) throw new AppError("المهمة غير موجودة", 404)
 
-        await TaskModel.findByIdAndUpdate(taskId, { isDeleted: true })
+        await TaskModel.findOneAndUpdate({ _id: taskId, officeId: req.user?.officeId }, { isDeleted: true })
 
         return res.status(200).json({ message: "Task deleted successfully" })
     }

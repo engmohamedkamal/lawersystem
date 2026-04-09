@@ -25,6 +25,7 @@ class SlotService {
     const existing = await AvailabilitySlotModel.findOne({
       startAt,
       endAt,
+      officeId: req.user?.officeId,
     });
 
     if (existing) {
@@ -35,6 +36,7 @@ class SlotService {
       startAt,
       endAt,
       createdBy: req.user?.id,
+      officeId: req.user?.officeId,
     });
 
     await slot.save();
@@ -70,7 +72,7 @@ class SlotService {
   getSlots = async (req: Request, res: Response, next: NextFunction) => {
     const { status, page = 1, limit = 10 } = req.query;
 
-    const filter: Record<string, any> = {};
+    const filter: Record<string, any> = { officeId: req.user?.officeId };
     if (status) filter.status = status;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -98,7 +100,7 @@ class SlotService {
   getSlotById = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
-    const slot = await AvailabilitySlotModel.findById(id)
+    const slot = await AvailabilitySlotModel.findOne({ _id: id, officeId: req.user?.officeId })
       .populate("appointment")
       .populate("createdBy", "UserName email")
 
@@ -111,7 +113,7 @@ class SlotService {
     const { id } = req.params;
     const { status, startAt, endAt } = req.body;
 
-    const slot = await AvailabilitySlotModel.findById(id);
+    const slot = await AvailabilitySlotModel.findOne({ _id: id, officeId: req.user?.officeId });
     if (!slot) throw new AppError("Slot not found", 404);
 
     if (slot.status === "BOOKED") {
@@ -140,7 +142,7 @@ class SlotService {
   deleteSlot = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
-    const slot = await AvailabilitySlotModel.findById(id);
+    const slot = await AvailabilitySlotModel.findOne({ _id: id, officeId: req.user?.officeId });
     if (!slot) throw new AppError("Slot not found", 404);
 
     if (slot.status === "BOOKED") {

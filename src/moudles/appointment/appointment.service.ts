@@ -5,6 +5,8 @@ import mongoose from "mongoose";
 import AppointmentModel from "../../DB/model/Appointment.model";
 import { bookSchemaType, updateStatusType } from "./appointment.validation";
 import { getFingerprint } from "../../utils/getFingerprint";
+import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 
 class AppointmentService {
@@ -86,7 +88,9 @@ class AppointmentService {
     getAppointments = async (req: Request, res: Response, next: NextFunction) => {
         const { status, serviceType, caseType, handledBy, page = "1", limit = "10" } = req.query
 
-        const filter: Record<string, any> = {}
+        assertFeatureEnabled((req as any).office, PLAN_FEATURES.APPOINTMENTS_ENABLED)
+
+        const filter: Record<string, any> = { officeId: req.user?.officeId }
         if (status)      filter.status      = status
         if (serviceType) filter.serviceType = serviceType
         if (caseType)    filter.caseType    = caseType
@@ -109,10 +113,10 @@ class AppointmentService {
                 .skip(skip)
                 .limit(limitNum),
             AppointmentModel.countDocuments(filter),
-            AppointmentModel.countDocuments({ createdAt: { $gte: startOfYear } }),
-            AppointmentModel.countDocuments({ createdAt: { $gte: startOfMonth } }),
-            AppointmentModel.countDocuments({ status: "CONFIRMED" }),
-            AppointmentModel.countDocuments({ status: "CANCELLED" }),
+            AppointmentModel.countDocuments({ officeId: req.user?.officeId, createdAt: { $gte: startOfYear } }),
+            AppointmentModel.countDocuments({ officeId: req.user?.officeId, createdAt: { $gte: startOfMonth } }),
+            AppointmentModel.countDocuments({ officeId: req.user?.officeId, status: "CONFIRMED" }),
+            AppointmentModel.countDocuments({ officeId: req.user?.officeId, status: "CANCELLED" }),
         ])
 
         return res.status(200).json({
@@ -134,7 +138,7 @@ class AppointmentService {
 
         const { id } = req.params
 
-        const appointment = await AppointmentModel.findById(id)
+        const appointment = await AppointmentModel.findOne({ _id: id, officeId: req.user?.officeId })
             .populate("slot",      "startAt endAt status")
             .populate("caseType",  "name")
             .populate("handledBy", "UserName email")
@@ -146,7 +150,7 @@ class AppointmentService {
 
     cancelAppointment = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
-        const appointment = await AppointmentModel.findById(id)
+        const appointment = await AppointmentModel.findOne({ _id: id, officeId: req.user?.officeId })
         if(!appointment) throw new AppError ("appointment not found" , 404 )
         if (appointment.status === "CANCELLED")  throw new AppError("appointment is already cancelled", 400)
         if (appointment.status === "COMPLETED")  throw new AppError("cannot cancel a completed appointment", 400)
@@ -184,7 +188,7 @@ class AppointmentService {
         const { id }               = req.params
         const { status }: updateStatusType = req.body
 
-        const appointment = await AppointmentModel.findById(id)
+        const appointment = await AppointmentModel.findOne({ _id: id, officeId: req.user?.officeId })
         if (!appointment) throw new AppError("appointment not found", 404)
         if (appointment.status === "COMPLETED") throw new AppError("appointment is already completed", 400)
 

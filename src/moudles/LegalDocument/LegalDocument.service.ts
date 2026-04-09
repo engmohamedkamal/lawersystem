@@ -12,12 +12,14 @@ import {
   UpdateTemplateBodyType,
 } from "./LegalDocument.validation";
 import SettingsModel from "../../DB/model/settings.model";
+import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 class LegalDocumentService {
   constructor() {}
 
   getAllTemplates = async (req: Request, res: Response, next: NextFunction) => {
-    const templates = await DocumentTemplateModel.find({ isActive: true })
+    const templates = await DocumentTemplateModel.find({ isActive: true, officeId: req.user?.officeId })
       .select("_id name type description defaultFields defaultSections")
       .sort({ type: 1, name: 1 })
       .lean();
@@ -28,7 +30,7 @@ class LegalDocumentService {
   getTemplateById = async (req: Request, res: Response, next: NextFunction) => {
     const { id }: TemplateParamsType = req.params as any;
 
-    const template = await DocumentTemplateModel.findOne({ _id: id, isActive: true });
+    const template = await DocumentTemplateModel.findOne({ _id: id, isActive: true, officeId: req.user?.officeId });
     if (!template) throw new AppError("template not found", 404);
 
     return res.status(200).json({ message: "done", template });
@@ -44,6 +46,7 @@ class LegalDocumentService {
       defaultFields:   body.defaultFields   ?? [],
       defaultSections: body.defaultSections ?? [],
       isActive:        body.isActive        ?? true,
+      officeId:        req.user?.officeId,
     });
 
     return res.status(201).json({ message: "done, template created", template });
@@ -53,7 +56,7 @@ class LegalDocumentService {
     const { id }: TemplateParamsType = req.params as any;
     const body: UpdateTemplateBodyType = req.body;
 
-    const template = await DocumentTemplateModel.findById(id);
+    const template = await DocumentTemplateModel.findOne({ _id: id, officeId: req.user?.officeId });
     if (!template) throw new AppError("template not found", 404);
 
     if (body.name            !== undefined) template.name            = body.name;
@@ -71,7 +74,7 @@ class LegalDocumentService {
   deleteTemplate = async (req: Request, res: Response, next: NextFunction) => {
     const { id }: TemplateParamsType = req.params as any;
 
-    const template = await DocumentTemplateModel.findById(id);
+    const template = await DocumentTemplateModel.findOne({ _id: id, officeId: req.user?.officeId });
     if (!template) throw new AppError("template not found", 404);
 
     template.isActive = false;
@@ -84,8 +87,12 @@ class LegalDocumentService {
   const userId = req.user?._id;
   const { templateId, title, status, fields, sections }: CreateDocumentBodyType = req.body;
 
-  const template = await DocumentTemplateModel.findOne({ _id: templateId, isActive: true });
+  const template = await DocumentTemplateModel.findOne({ _id: templateId, isActive: true, officeId: req.user?.officeId });
   if (!template) throw new AppError("template not found", 404);
+
+  const office = (req as any).office
+  const docsCount = await LegalDocumentModel.countDocuments({ officeId: req.user?.officeId, isDeleted: false })
+  assertFeatureLimitNotReached(office, PLAN_FEATURES.LEGALDOCUMENTS_MAX, docsCount)
 
   const templateFields = Array.isArray(template.defaultFields) ? template.defaultFields : [];
   const templateSections = Array.isArray(template.defaultSections) ? template.defaultSections : [];
@@ -120,6 +127,7 @@ class LegalDocumentService {
     fields: resolvedFields,
     sections: resolvedSections,
     style: {},
+    officeId: req.user?.officeId,
   });
 
   return res.status(201).json({
@@ -132,7 +140,7 @@ class LegalDocumentService {
     const userId = req.user?._id;
     const { status, type, page = 1, limit = 20 } = req.query as any;
 
-    const filter: Record<string, unknown> = { userId, isDeleted: false };
+    const filter: Record<string, unknown> = { userId, isDeleted: false, officeId: req.user?.officeId };
     if (status) filter.status = status;
     if (type)   filter.type   = type;
 
@@ -161,7 +169,7 @@ class LegalDocumentService {
     const { id }: DocumentParamsType = req.params as any;
     const userId = req.user?._id;
 
-    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false })
+    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false, officeId: req.user?.officeId })
       .populate("templateId", "name type defaultFields");
 
     if (!document) throw new AppError("document not found", 404);
@@ -174,7 +182,7 @@ class LegalDocumentService {
     const userId = req.user?._id;
     const updates: UpdateDocumentBodyType = req.body;
 
-    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false });
+    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false, officeId: req.user?.officeId });
     if (!document) throw new AppError("document not found", 404);
 
     if (updates.title    !== undefined) document.title    = updates.title;
@@ -198,7 +206,7 @@ class LegalDocumentService {
     const { id }: DocumentParamsType = req.params as any;
     const userId = req.user?._id;
 
-    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false });
+    const document = await LegalDocumentModel.findOne({ _id: id, userId, isDeleted: false, officeId: req.user?.officeId });
     if (!document) throw new AppError("document not found", 404);
 
     document.isDeleted = true;
@@ -217,6 +225,7 @@ class LegalDocumentService {
       _id: id,
       userId,
       isDeleted: false,
+      officeId: req.user?.officeId,
     }).populate("templateId", "name type defaultFields defaultSections");
 
     if (!document) throw new AppError("document not found", 404);

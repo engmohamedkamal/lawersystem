@@ -10,7 +10,7 @@ class SettingsService {
 
     getSettings = async (req: Request, res: Response, next: NextFunction) =>{
 
-        const Settings = await SettingsModel.findOne()
+        const Settings = await SettingsModel.findOne({ officeId: req.user?.officeId })
         if(!Settings) throw new AppError("Settings not configured yet", 404)
         return res.status(200).json({ message: "success", Settings })
 
@@ -21,8 +21,8 @@ class SettingsService {
         const data : UpsertSettingsType = req.body
 
         const settings = await SettingsModel.findOneAndUpdate(
-          {},
-          { $set: data },
+          { officeId: req.user?.officeId },
+          { $set: { ...data, officeId: req.user?.officeId } },
           { new: true, upsert: true }
         )
 
@@ -38,14 +38,14 @@ class SettingsService {
             throw new AppError("duplicate days are not allowed", 400)
           }
 
-          const existing = await SettingsModel.findOne()
+          const existing = await SettingsModel.findOne({ officeId: req.user?.officeId })
           const existingDays = existing?.workHours.flatMap((w: { days: string[] }) => w.days) ?? []
           const newDays = workHours.flatMap(w => w.days)
           const hasDuplicate = newDays.some(d => existingDays.includes(d))
           if (hasDuplicate) throw new AppError("day already exists", 400)
 
           const settings = await SettingsModel.findOneAndUpdate(
-            {},
+            { officeId: req.user?.officeId },
             { $push: { workHours: { $each: workHours } } },
             { new: true, upsert: true }
           )
@@ -55,7 +55,7 @@ class SettingsService {
     deleteWorkHour = async (req: Request, res: Response, next: NextFunction) => {
          const { days } = req.body as { days: string[] } 
 
-         const settings = await SettingsModel.findOne()
+         const settings = await SettingsModel.findOne({ officeId: req.user?.officeId })
          if (!settings) throw new AppError("Settings not configured yet", 404)
 
          const existingDays = settings.workHours.flatMap((w: { days: string[] }) => w.days)
@@ -71,7 +71,7 @@ class SettingsService {
            .filter(w => w.days.length > 0)
 
          const updated = await SettingsModel.findOneAndUpdate(
-           {},
+           { officeId: req.user?.officeId },
            { $set: { workHours: updatedWorkHours } },
            { new: true }
          )
@@ -81,7 +81,7 @@ class SettingsService {
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {
          if (!req.file) throw new AppError("No image uploaded", 400)
 
-         const existing = await SettingsModel.findOne()
+         const existing = await SettingsModel.findOne({ officeId: req.user?.officeId })
          if (existing?.logoPublicId) {
            await cloudinary.uploader.destroy(existing.logoPublicId)
          }
@@ -89,7 +89,7 @@ class SettingsService {
          const { secure_url, public_id } = await uploadBuffer(req.file.buffer, "settings/logo")
 
          const settings = await SettingsModel.findOneAndUpdate(
-           {},
+           { officeId: req.user?.officeId },
            { $set: { logo: secure_url, logoPublicId: public_id } },
            { new: true, upsert: true }
          )
@@ -101,7 +101,7 @@ class SettingsService {
 
     deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
         
-         const settings = await SettingsModel.findOne()
+         const settings = await SettingsModel.findOne({ officeId: req.user?.officeId })
          if (!settings) throw new AppError("Settings not found", 404)
          if (!settings.logo) throw new AppError("No logo to delete", 400)
 

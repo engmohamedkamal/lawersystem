@@ -26,18 +26,21 @@ class DashboardService {
             ] = await Promise.all([
                 LegalCaseModel.countDocuments({
                     isDeleted: false,
+                    officeId: req.user?.officeId,
                     status:    { $nin: ["منتهية", "مؤرشفة"] },
                     $or: [{ assignedTo: userId }, { team: userId }],
                 }),
  
                 TaskModel.countDocuments({
                     isDeleted:  false,
+                    officeId:   req.user?.officeId,
                     status:     "قيد التنفيذ",
                     assignedTo: userId,
                 }),
  
                 SessionModel.find({
                     isDeleted: false,
+                    officeId:  req.user?.officeId,
                     status:    "مجدولة",
                     startAt:   { $gte: now, $lte: nextWeek },
                     $or: [{ assignedTo: userId }, { team: userId }],
@@ -51,6 +54,7 @@ class DashboardService {
                     {
                         $match: {
                             isDeleted:  false,
+                            officeId:   req.user?.officeId,
                             assignedTo: userId,
                             status:     { $nin: ["مكتملة", "ملغية"] },
                         }
@@ -60,6 +64,7 @@ class DashboardService {
  
                 LegalCaseModel.find({
                     isDeleted: false,
+                    officeId:  req.user?.officeId,
                     $or: [{ assignedTo: userId }, { team: userId }],
                 })
                     .populate("client",    "fullName phone type")
@@ -104,28 +109,32 @@ class DashboardService {
         ] = await Promise.all([
             LegalCaseModel.countDocuments({
                 isDeleted: false,
+                officeId:  req.user?.officeId,
                 status:    { $nin: ["منتهية", "مؤرشفة"] },
             }),
  
             LegalCaseModel.distinct("client", {
                 isDeleted: false,
+                officeId:  req.user?.officeId,
                 status:    { $nin: ["منتهية", "مؤرشفة"] },
             }).then(ids =>
-                ClientModel.countDocuments({ _id: { $in: ids }, isDeleted: false })
+                ClientModel.countDocuments({ _id: { $in: ids }, isDeleted: false, officeId: req.user?.officeId })
             ),
  
             TaskModel.countDocuments({
                 isDeleted: false,
+                officeId:  req.user?.officeId,
                 status:    "قيد التنفيذ",
             }),
  
             InvoiceModel.aggregate([
-                { $match: { isDeleted: false, status: { $ne: "ملغية" } } },
+                { $match: { isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" } } },
                 { $group: { _id: null, total: { $sum: "$paidAmount" } } },
             ]),
  
             SessionModel.find({
                 isDeleted: false,
+                officeId:  req.user?.officeId,
                 status:    "مجدولة",
                 startAt:   { $gte: now, $lte: nextWeek },
             })
@@ -135,11 +144,11 @@ class DashboardService {
                 .limit(10),
  
             TaskModel.aggregate([
-                { $match: { isDeleted: false, status: { $nin: ["مكتملة", "ملغية"] } } },
+                { $match: { isDeleted: false, officeId: req.user?.officeId, status: { $nin: ["مكتملة", "ملغية"] } } },
                 { $group: { _id: "$priority", count: { $sum: 1 } } },
             ]),
  
-            LegalCaseModel.find({ isDeleted: false })
+            LegalCaseModel.find({ isDeleted: false, officeId: req.user?.officeId })
                 .populate("client",    "fullName phone type")
                 .populate("caseType",  "name")
                 .populate("assignedTo","UserName email")
