@@ -14,7 +14,12 @@ import { allowedExtensions, MulterHost } from "../../middleware/multer";
 const SettingsRouter = Router()
 
 SettingsRouter.get("/",
+    authentication(TokenType.access),
     SS.getSettings
+);
+
+SettingsRouter.get("/public/:subdomain",
+    SS.getPublicSettings
 );
 
 SettingsRouter.put(

@@ -440,6 +440,7 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 | Endpoint | Method | Description |
 |---|---|---|
 | `/SettingsService/` | GET | Get current settings |
+| `/SettingsService/public/:subdomain` | GET | (Public) Get office settings for landing pages using subdomain |
 | `/SettingsService/` | POST | Upsert settings (create or update) |
 | `/SettingsService/workHours` | PATCH | Add work hour blocks |
 | `/SettingsService/workHours` | DELETE | Remove specific days |

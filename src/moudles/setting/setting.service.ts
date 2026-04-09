@@ -4,6 +4,7 @@ import { AppError } from "../../utils/classError";
 import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 
 class SettingsService {
@@ -14,6 +15,21 @@ class SettingsService {
         if(!Settings) throw new AppError("Settings not configured yet", 404)
         return res.status(200).json({ message: "success", Settings })
 
+    }
+
+    getPublicSettings = async (req: Request, res: Response, next: NextFunction) =>{
+        const { subdomain } = req.params;
+
+        if (!subdomain) {
+            throw new AppError("Subdomain is required", 400)
+        }
+
+        const office = await OfficeModel.findOne({ subdomain: String(subdomain).toLowerCase(), isActive: true })
+        if(!office) throw new AppError("Office not found or inactive", 404)
+
+        const Settings = await SettingsModel.findOne({ officeId: office._id })
+        if(!Settings) throw new AppError("Settings not configured yet", 404)
+        return res.status(200).json({ message: "success", Settings })
     }
 
     upsertSettings = async (req: Request, res: Response, next: NextFunction) => {
