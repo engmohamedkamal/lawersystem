@@ -6,9 +6,9 @@ import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
-import mongoose from "mongoose";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 const notifySessionParticipants = async (
     session:    any,
@@ -60,7 +60,10 @@ class sessionService {
         } = req.body
  
         const officeId = req.user?.officeId
-        const office = (req as any).office
+        const office = await OfficeModel.findById(officeId);
+        if (!office) {
+            throw new AppError("office not found", 404);
+        }
 
         const sessionsCount = await SessionModel.countDocuments({ officeId, isDeleted: false })
         assertFeatureLimitNotReached(office, PLAN_FEATURES.SESSION_MAX, sessionsCount)

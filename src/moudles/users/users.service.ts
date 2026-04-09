@@ -44,7 +44,7 @@ class usersService {
 
          if (req.file) {
            const result = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
-           profilePhoto = { url: result.secure_url, publicId: result.public_id };
+           profilePhoto = { url: result.secure_url, publicId: result.public_id }
          }
 
          const user = new UserModel({

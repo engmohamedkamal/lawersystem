@@ -14,6 +14,7 @@ import {
 import SettingsModel from "../../DB/model/settings.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 class LegalDocumentService {
   constructor() {}
@@ -90,7 +91,13 @@ class LegalDocumentService {
   const template = await DocumentTemplateModel.findOne({ _id: templateId, isActive: true, officeId: req.user?.officeId });
   if (!template) throw new AppError("template not found", 404);
 
-  const office = (req as any).office
+  const officeId = req.user?.officeId;
+  const office = await OfficeModel.findById(officeId);
+  if (!office) {
+    throw new AppError("office not found", 404);
+  }
+
+
   const docsCount = await LegalDocumentModel.countDocuments({ officeId: req.user?.officeId, isDeleted: false })
   assertFeatureLimitNotReached(office, PLAN_FEATURES.LEGALDOCUMENTS_MAX, docsCount)
 

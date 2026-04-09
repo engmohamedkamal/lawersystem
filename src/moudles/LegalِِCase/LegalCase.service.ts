@@ -10,6 +10,7 @@ import SessionModel from "../../DB/model/session.model";
 import { sendNotification } from "../task/notification.service";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 class LegalCaseService {
     constructor() {}
@@ -18,7 +19,10 @@ class LegalCaseService {
         const  caseData : CreateCaseType = req.body
 
         const officeId = req.user?.officeId
-        const office = (req as any).office
+        const office = await OfficeModel.findById(officeId);
+            if (!office) {
+            throw new AppError("office not found", 404);
+        }
 
         const casesCount = await LegalCaseModel.countDocuments({ officeId, isDeleted: false })
         assertFeatureLimitNotReached(office, PLAN_FEATURES.LEGALCASE_MAX, casesCount)
