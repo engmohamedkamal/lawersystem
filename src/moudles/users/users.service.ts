@@ -97,6 +97,7 @@ class usersService {
         endOfWeek.setHours(23, 59, 59, 999);
 
         const caseFilter = {
+            officeId: req.user?.officeId,
             $or: [{ assignedTo: userId }, { team: userId }],
             isDeleted: false
         };
@@ -106,6 +107,7 @@ class usersService {
             LegalCaseModel.countDocuments({ ...caseFilter, status: { $in: ["قيد التحضير", "قيد التنفيذ"] } }),
             LegalCaseModel.countDocuments({ ...caseFilter, status: "منتهية" }),
             SessionModel.countDocuments({
+                officeId: req.user?.officeId,
                 $or: [{ assignedTo: userId }, { team: userId }],
                 isDeleted: false,
                 startAt: { $gte: startOfDay, $lte: endOfWeek }
@@ -140,6 +142,7 @@ class usersService {
         endOfWeek.setHours(23, 59, 59, 999);
 
         const caseFilter = {
+            officeId: req.user?.officeId,
             $or: [{ assignedTo: userId }, { team: userId }],
             isDeleted: false
         };
@@ -149,6 +152,7 @@ class usersService {
             LegalCaseModel.countDocuments({ ...caseFilter, status: { $in: ["قيد التحضير", "قيد التنفيذ"] } }),
             LegalCaseModel.countDocuments({ ...caseFilter, status: "منتهية" }),
             SessionModel.countDocuments({
+                officeId: req.user?.officeId,
                 $or: [{ assignedTo: userId }, { team: userId }],
                 isDeleted: false,
                 startAt: { $gte: startOfDay, $lte: endOfWeek }

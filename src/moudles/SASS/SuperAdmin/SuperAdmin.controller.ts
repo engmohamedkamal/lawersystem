@@ -3,6 +3,8 @@ import { TokenType } from "../../../utils/token";
 import { authentication } from "../../../middleware/authentication";
 import SS from "./Superadmin.service";
 import { isSuperAdmin } from "../../../middleware/superAdmin";
+import { validation } from "../../../middleware/validation";
+import * as SV from "./SuperAdmin.validation";
 
 
 const superAdminRouter = Router();
@@ -11,6 +13,7 @@ const superAdminRouter = Router();
 superAdminRouter.post("/createPlan",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.createPlanSchema),
     SS.createPlan
 )
 
@@ -23,24 +26,28 @@ superAdminRouter.get("/getPlans",
 superAdminRouter.put("/updatePlan/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.updatePlanSchema),
     SS.updatePlan
 )
 
 superAdminRouter.put("/freezePlan/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.planIdParamSchema),
     SS.freezePlan
 )
 
 superAdminRouter.put("/unfreezePlan/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.planIdParamSchema),
     SS.unfreezePlan
 )
 
 superAdminRouter.delete("/deletePlan/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.planIdParamSchema),
     SS.deletePlan
 )
 
@@ -48,18 +55,21 @@ superAdminRouter.delete("/deletePlan/:planId",
 superAdminRouter.post("/addFeature/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.addFeatureSchema),
     SS.addFeatureForOnePlan
 )
 
 superAdminRouter.delete("/removeFeature/:planId/:key",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.featureParamSchema),
     SS.removeFeatureFromOnePlan
 )
 
 superAdminRouter.put("/updateFeature/:planId/:key",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.updateFeatureSchema),
     SS.updateFeatureForOnePlan
 )
 
@@ -67,12 +77,14 @@ superAdminRouter.put("/updateFeature/:planId/:key",
 superAdminRouter.post("/setPlanOffer/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.setPlanOfferSchema),
     SS.setPlanOffer
 )
 
 superAdminRouter.delete("/removePlanOffer/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.planIdParamSchema),
     SS.removePlanOffer
 )
 
@@ -80,6 +92,7 @@ superAdminRouter.delete("/removePlanOffer/:planId",
 superAdminRouter.post("/createCoupon",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.createCouponSchema),
     SS.createCoupon
 )
 
@@ -92,12 +105,14 @@ superAdminRouter.get("/getCoupons",
 superAdminRouter.get("/getCoupon/:couponId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.couponIdParamSchema),
     SS.getCoupon
 )
 
 superAdminRouter.delete("/deleteCoupon/:couponId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.couponIdParamSchema),
     SS.deleteCoupon
 )
 
@@ -112,6 +127,7 @@ superAdminRouter.get("/getAllOffices",
 superAdminRouter.get("/getOffice/:officeId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.officeIdParamSchema),
     SS.getOfficeById
 )
 
@@ -119,12 +135,14 @@ superAdminRouter.get("/getOffice/:officeId",
 superAdminRouter.put("/updateOfficeSubscription/:officeId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.updateOfficeSubscriptionSchema),
     SS.updateOfficeSubscription
 )
 
 superAdminRouter.put("/updateOfficeFeatures/:officeId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.updateOfficeFeaturesSchema),
     SS.updateOfficeFeatures
 )
 
@@ -132,6 +150,7 @@ superAdminRouter.put("/updateOfficeFeatures/:officeId",
 superAdminRouter.put("/toggleOfficeStatus/:officeId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.officeIdParamSchema),
     SS.toggleOfficeStatus
 )
 
@@ -144,6 +163,7 @@ superAdminRouter.get("/getRevenueChart",
 superAdminRouter.get("/getRevenueByPlan/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
+    validation(SV.planIdParamSchema),
     SS.getRevenueByPlan
 )
 

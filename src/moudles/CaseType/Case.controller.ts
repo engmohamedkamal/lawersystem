@@ -19,7 +19,13 @@ CaseTypeRouter.post(
 )
 
 CaseTypeRouter.get(
+    "/public/:subdomain",
+    CS.getPublicCaseTypes
+);
+
+CaseTypeRouter.get(
     "/",
+    authentication(TokenType.access),
     CS.getCaseTypes
 );
 

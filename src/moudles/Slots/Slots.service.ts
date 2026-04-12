@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../../utils/classError";
 import AvailabilitySlotModel from "../../DB/model/AvailabilitySlot.model";
-import UserModel from "../../DB/model/user.model";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 class SlotService {
   constructor() {}
@@ -44,19 +44,29 @@ class SlotService {
   };
 
 
-  getAvailableSlots = async (req: Request, res: Response, next: NextFunction) => {
-    const { page = 1, limit = 10 } = req.query
+  getPublicAvailableSlots = async (req: Request, res: Response, next: NextFunction) => {
+    const { page = 1, limit = 10 } = req.query;
+    const { subdomain } = req.params;
+
+    if (!subdomain) {
+      throw new AppError("Subdomain is required", 400);
+    }
+
+    const office = await OfficeModel.findOne({ subdomain: String(subdomain).toLowerCase(), isActive: true });
+    if (!office) throw new AppError("Office not found or inactive", 404);
 
     const pageNum  = Math.max(Number(page), 1)
     const limitNum = Math.min(Math.max(Number(limit), 1), 100)
     const skip     = (pageNum - 1) * limitNum
 
+    const filter = { status: "AVAILABLE", startAt: { $gte: new Date() }, officeId: office._id };
+
     const [slots, total] = await Promise.all([
-      AvailabilitySlotModel.find({ status: "AVAILABLE", startAt: { $gte: new Date() } })
+      AvailabilitySlotModel.find(filter)
         .sort({ startAt: 1 })
         .skip(skip)
         .limit(limitNum),
-      AvailabilitySlotModel.countDocuments({ status: "AVAILABLE", startAt: { $gte: new Date() } }),
+      AvailabilitySlotModel.countDocuments(filter),
     ])
 
     return res.status(200).json({

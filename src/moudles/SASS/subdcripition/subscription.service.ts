@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express"
+import { Types } from "mongoose"
 import bcrypt from "bcrypt"
 import UserModel, { Role } from "../../../DB/model/user.model"
 import { AppError } from "../../../utils/classError"
@@ -278,30 +279,54 @@ class SubscriptionService {
     }
 
     // ── التحقق من كوبون ───────────────────────────────────────────────────────
-    validateCoupon = async (req: Request, res: Response, next: NextFunction) => {
-        const { code, planId } = req.body
-        const now = new Date()
+   applyCoupon = async (req: Request, res: Response, next: NextFunction) => {
+        const { code, planId, billingInterval = "monthly" } = req.body
 
-        const coupon = await CouponModel.findOne({
-            code: code.toUpperCase(),
-            isActive: true,
-            validFrom: { $lte: now },
-            validUntil: { $gte: now },
-        })
+        if (!code || !String(code).trim()) {
+            throw new AppError("كود الكوبون مطلوب", 400)
+        }
 
-        if (!coupon) throw new AppError("كوبون غير صالح أو منتهي الصلاحية", 400)
-        if (coupon.maxUses !== -1 && coupon.usedCount >= coupon.maxUses) {
-            throw new AppError("تم استنفاد عدد استخدامات الكوبون", 400)
+        if (!planId || !Types.ObjectId.isValid(planId)) {
+            throw new AppError("planId غير صالح", 400)
         }
-        if (coupon.plans.length > 0 && !coupon.plans.some((p: any) => p.toString() === planId)) {
-            throw new AppError("الكوبون غير صالح لهذه الخطة", 400)
+
+        const plan = await PlanModel.findById(planId)
+        if (!plan) throw new AppError("الخطة غير موجودة", 404)
+
+        let originalAmount = billingInterval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice
+
+        if (plan.offer?.isActive) {
+            const offerValid = !plan.offer.validUntil || plan.offer.validUntil >= new Date()
+            if (offerValid) {
+                originalAmount = Math.round(originalAmount * (1 - plan.offer.discountPercent / 100))
+            }
         }
+
+        const { discountAmount, couponDoc } = await applyDiscount(originalAmount, code, planId)
+        const finalAmount = Math.max(originalAmount - discountAmount, 0)
 
         return res.status(200).json({
-            message: "كوبون صالح",
-            coupon: { code: coupon.code, type: coupon.type, value: coupon.value },
+            message: "تم تطبيق الكوبون بنجاح",
+            data: {
+                plan: {
+                    _id: plan._id,
+                    name: plan.name,
+                    originalAmount,
+                    billingInterval,
+                },
+                coupon: {
+                    _id: couponDoc._id,
+                    code: couponDoc.code,
+                    type: couponDoc.type,
+                    value: couponDoc.value,
+                },
+                discountAmount,
+                finalAmount,
+            },
         })
     }
+
+
 
 
 }

@@ -17,8 +17,8 @@ slotRouter.post(
   SS.createSlot
 );
 
-slotRouter.get("/available",
-  SS.getAvailableSlots
+slotRouter.get("/public/:subdomain/available",
+  SS.getPublicAvailableSlots
 );
 
 slotRouter.get("/",

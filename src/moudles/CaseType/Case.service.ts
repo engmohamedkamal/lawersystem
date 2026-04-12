@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import CaseTypeModel from "../../DB/model/CaseType.model";
 import { AppError } from "../../utils/classError";
 import { CreateCaseTypeType } from "./Case.validation";
+import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
 
 
@@ -26,6 +27,19 @@ class usersService {
     getCaseTypes = async (req: Request, res: Response, next: NextFunction) => {
         const caseTypes = await CaseTypeModel.find({ isActive: true, officeId: req.user?.officeId }).sort({ createdAt: -1 })
         return res.status(200).json({ message: "success", caseTypes })
+    }
+
+    getPublicCaseTypes = async (req: Request, res: Response, next: NextFunction) => {
+        const { subdomain } = req.params;
+        if (!subdomain) {
+            throw new AppError("Subdomain is required", 400);
+        }
+
+        const office = await OfficeModel.findOne({ subdomain: String(subdomain).toLowerCase(), isActive: true });
+        if (!office) throw new AppError("Office not found or inactive", 404);
+
+        const caseTypes = await CaseTypeModel.find({ isActive: true, officeId: office._id }).sort({ createdAt: -1 });
+        return res.status(200).json({ message: "success", caseTypes });
     }
 
     getAllCaseTypes = async (req: Request, res: Response, next: NextFunction) => {

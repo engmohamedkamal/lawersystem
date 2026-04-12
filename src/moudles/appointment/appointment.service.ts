@@ -53,6 +53,7 @@ class AppointmentService {
 
             const appointment = await AppointmentModel.create(
                 [{
+                    officeId: slot.officeId,
                     fullName,
                     phone,
                     email,
