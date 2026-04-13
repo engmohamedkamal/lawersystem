@@ -8,6 +8,7 @@ import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import SessionModel from "../../DB/model/session.model";
 import { sendNotification } from "../task/notification.service";
+import { emitItemAssigned } from "../../utils/EmailEvent";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
@@ -69,6 +70,12 @@ class LegalCaseService {
                 caseNumber: caseData.caseNumber,
             });
         }
+
+        emitItemAssigned({
+            userIds: uniqueNotifyUsers,
+            title: "قضية جديدة",
+            body: `تم إضافتك في قضية جديدة رقم: ${caseData.caseNumber} — العميل: ${client.fullName}`,
+        });
 
         return res.status(201).json({ message: "Case created successfully", case: populated })
     }

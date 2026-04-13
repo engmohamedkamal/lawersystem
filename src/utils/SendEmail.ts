@@ -9,15 +9,16 @@ const transporter = nodemailer.createTransport({
 });
 
 interface SendEmailOptions {
-  html?: string;
-  subject?: string;
-  to?: string;
+  html?: string | undefined;
+  subject?: string | undefined;
+  to?: string | undefined;
+  fromName?: string | undefined;
 }
 
-export const sendEmail = async ({ html, subject, to }: SendEmailOptions): Promise<boolean> => {
+export const sendEmail = async ({ html, subject, to, fromName }: SendEmailOptions): Promise<boolean> => {
   try {
     const info = await transporter.sendMail({
-      from: `"Customer Service" <${process.env.EMAIL_USER}>`,
+      from: `"${fromName || 'Customer Service'}" <${process.env.EMAIL_USER}>`,
       to: to || "mohamedkamalawad7407@gmail.com",
       subject: subject || "Hello ✔",
       html: html || "<b>Hello world?</b>",

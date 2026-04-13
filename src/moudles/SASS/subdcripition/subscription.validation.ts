@@ -46,9 +46,22 @@ export const registerOfficeSchema = {
     
     saveCard: z.boolean().optional(),
     
-    paymentMethod: z
-      .enum(["card", "cash", "kiosk", "wallet"])
+    walletPhone: z
+      .string()
+      .regex(/^01[0125][0-9]{8}$/, "صيغة رقم المحفظة غير صحيحة")
       .optional(),
+    
+    paymentMethod: z
+      .enum(["card", "wallet"])
+      .optional(),
+  }).refine((data) => {
+    if (data.paymentMethod === "wallet") {
+      return !!data.walletPhone;
+    }
+    return true;
+  }, {
+    message: "رقم المحفظة مطلوب عند اختيار الدفع بالمحافظ الإلكترونية",
+    path: ["walletPhone"],
   }),
 };
 

@@ -3,6 +3,7 @@ import { AppError } from "../../utils/classError";
 import UserModel, { Role } from "../../DB/model/user.model";
 import TaskModel from "../../DB/model/tasks.model";
 import { sendNotification } from "./notification.service";
+import { emitItemAssigned } from "../../utils/EmailEvent";
 import ClientModel from "../../DB/model/client.model";
 import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
@@ -91,11 +92,17 @@ class taskService {
             body: `تم تكليفك بمهمة: ${title}${clientDoc ? ` — العميل: ${clientDoc.fullName}` : ""}${dueDateFormatted ? ` — الموعد: ${dueDateFormatted}` : ""}`,
             taskId: task._id,
             taskTitle: title,
-            clientName: clientDoc.fullName,
-            clientPhone: clientDoc.phone,
-            clientEmail: clientDoc.email ?? undefined,
+            clientName: clientDoc?.fullName,
+            clientPhone: clientDoc?.phone,
+            clientEmail: clientDoc?.email ?? undefined,
             dueDate: dueDate ? new Date(dueDate) : undefined,
         })
+
+        emitItemAssigned({
+            userIds: [assignedTo],
+            title: "مهمة جديدة",
+            body: `تم تكليفك بمهمة: ${title}${clientDoc ? ` — العميل: ${clientDoc.fullName}` : ""}${dueDateFormatted ? ` — الموعد: ${dueDateFormatted}` : ""}`,
+        });
 
         return res.status(201).json({ message: "Task created successfully", task: populated })
     }

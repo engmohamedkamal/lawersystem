@@ -558,6 +558,24 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 
 ---
 
+### 21. My Subscription 💳
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/my-subscription` | GET | Admin | Get current subscription status, plan details, and remaining days |
+| `/my-subscription/methods` | GET | Admin | List available payment methods (Cards, Wallets) |
+| `/my-subscription/plans` | GET | Admin | List active plans to upgrade/renew |
+| `/my-subscription/renew` | POST | Admin | Initiate renewal/upgrade (Integrated with Paymob Wallets & Cards) |
+| `/my-subscription/payments` | GET | Admin | Get historical payments and invoices |
+| `/my-subscription/card` | DELETE | Admin | Remove saved credit card & auto-renewal |
+
+**Implementation Details:**
+- **Paymob Integration**: Full support for credit cards (iframe) and E-Wallets (redirect) using `walletPhone` identifiers.
+- **Dynamic Pricing**: Applies active plan offers and coupon discounts mathematically.
+- **History Tracking**: Fetches all previous subscription transactions with status and saved amounts.
+
+---
+
 ## 🔐 Role-Based Access Control (RBAC)
 
 | Role | Scope | Access Level |

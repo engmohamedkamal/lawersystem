@@ -31,8 +31,9 @@ import legalDocumentRouter from "./moudles/LegalDocument/LegalDocument.controlle
 import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
 import superAdminRouter from "./moudles/SASS/SuperAdmin/SuperAdmin.controller"
 import saasRouter from "./moudles/SASS/subdcripition/subdcripition.controller"
-
-
+import OfficeModel from "./DB/model/SaaSModels/Office.model"
+import { sendEmail } from "./utils/SendEmail"
+import mySubscriptionRouter from "./moudles/SASS/Mysubscriptio/MySubscription.controller"
 
 
 const app:express.Application = express()
@@ -83,6 +84,7 @@ const bootStrap = ()=>{
     //sass
     app.use("/super-admin",superAdminRouter)
     app.use("/subscription" ,saasRouter)
+    app.use("/my-subscription" ,mySubscriptionRouter)
 
     
     

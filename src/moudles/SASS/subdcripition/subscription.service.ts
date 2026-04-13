@@ -78,7 +78,8 @@ class SubscriptionService {
             email, password, phone, UserName,
             planId, billingInterval = "monthly",
             couponCode, saveCard = false,
-            paymentMethod = "card",
+            paymentMethod = "card" as PaymentMethod,
+            walletPhone,
             officeName
         } = req.body
 
@@ -174,11 +175,12 @@ class SubscriptionService {
         })
 
         // إنشاء رابط دفع
-        const { iframeUrl, orderId, paymentKey } = await createPaymobPaymentLink({
+        const paymobResult = await createPaymobPaymentLink({
             amountEGP: finalAmount,
             merchantOrderId: payment._id.toString(),
             method: paymentMethod as PaymentMethod,
             saveCard: paymentMethod === "card" ? saveCard : false,
+            phone: paymentMethod === "wallet" && walletPhone ? String(walletPhone) : String(phone),
             billingData: {
                 email: email,
                 first_name: UserName.split(" ")[0] ?? UserName,
@@ -188,8 +190,15 @@ class SubscriptionService {
         })
 
         await PaymentModel.findByIdAndUpdate(payment._id, {
-            $set: { paymobOrderId: orderId, paymobPaymentKey: paymentKey, paymobIframeUrl: iframeUrl }
+            $set: {
+                paymobOrderId: paymobResult.orderId,
+                paymobPaymentKey: paymobResult.paymentKey,
+                paymobIframeUrl: paymobResult.iframeUrl ?? paymobResult.redirectUrl,
+            }
         })
+
+        // الكارت بيرجع iframeUrl — المحفظة بترجع redirectUrl
+        const paymentUrl = paymobResult.iframeUrl ?? paymobResult.redirectUrl
 
         return res.status(201).json({
             message: "تم إنشاء الحساب — أكمل عملية الدفع لتفعيل الاشتراك",
@@ -197,7 +206,8 @@ class SubscriptionService {
             subdomain: office.subdomain,
             adminId: admin._id,
             paymentId: payment._id,
-            iframeUrl,
+            paymentUrl,
+            paymentMethod,
             amount: finalAmount,
             originalAmount,
             discountAmount,

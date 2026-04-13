@@ -5,6 +5,7 @@ import OfficeModel from "../../../DB/model/SaaSModels/Office.model";
 import CouponModel from "../../../DB/model/SaaSModels/Coupon.model";
 import PaymentModel from "../../../DB/model/SaaSModels/Payment.model";
 import UserModel from "../../../DB/model/user.model";
+import { sendEmail } from "../../../utils/SendEmail";
 
 
 const buildFeaturesFromPlan = (plan: any): Record<string, any> => {
@@ -176,7 +177,7 @@ class SuperAdminService {
     //CRUD FOR PLAN OFFER
     setPlanOffer = async (req: Request, res: Response, next: NextFunction) => {
         const { planId } = req.params
-        const { label, discountPercent, validUntil, isActive } = req.body
+        const { label, discountPercent, validUntil, isActive, applyTo = "both" } = req.body
 
         const plan = await PlanModel.findById(planId)
         if (!plan) throw new AppError("plan not found", 404)
@@ -207,19 +208,27 @@ class SuperAdminService {
             }
         }
 
-        const monthlyPriceAfterDiscount = Number(
-            (plan.monthlyPrice - (plan.monthlyPrice * discountPercent) / 100).toFixed(2)
-        )
+        let monthlyPriceAfterDiscount = plan.monthlyPrice
+        let yearlyPriceAfterDiscount = plan.yearlyPrice
 
-        const yearlyPriceAfterDiscount = Number(
-            (plan.yearlyPrice - (plan.yearlyPrice * discountPercent) / 100).toFixed(2)
-        )
+        if (applyTo === "monthly" || applyTo === "both") {
+            monthlyPriceAfterDiscount = Number(
+                (plan.monthlyPrice - (plan.monthlyPrice * discountPercent) / 100).toFixed(2)
+            )
+        }
+
+        if (applyTo === "yearly" || applyTo === "both") {
+            yearlyPriceAfterDiscount = Number(
+                (plan.yearlyPrice - (plan.yearlyPrice * discountPercent) / 100).toFixed(2)
+            )
+        }
 
         plan.offer = {
             label,
             discountPercent,
             validUntil: parsedValidUntil,
-            isActive: isActive ?? true
+            isActive: isActive ?? true,
+            applyTo
         }
 
         plan.monthlyPriceAfterDiscount = monthlyPriceAfterDiscount

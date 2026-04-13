@@ -9,19 +9,14 @@ const BASE_URL = "https://accept.paymob.com/api"
 // ── Integration IDs لكل طريقة دفع ────────────────────────────────────────────
 const INTEGRATION_IDS = {
     card: process.env.PAYMOB_INTEGRATION_ID_CARD!,
-    orange: process.env.PAYMOB_INTEGRATION_ID_ORANGE,
-    vodafone: process.env.PAYMOB_INTEGRATION_ID_VODAFONE,
-    etisalat: process.env.PAYMOB_INTEGRATION_ID_ETISALAT,
+    wallet: process.env.PAYMOB_INTEGRATION_ID_WALLET!,
 }
 
 const IFRAME_IDS = {
     card: process.env.PAYMOB_IFRAME_ID_CARD!,
-    orange: process.env.PAYMOB_IFRAME_ID_ORANGE,
-    vodafone: process.env.PAYMOB_IFRAME_ID_VODAFONE,
-    etisalat: process.env.PAYMOB_IFRAME_ID_ETISALAT,
 }
 
-export type PaymentMethod = "card" | "orange" | "vodafone" | "etisalat"
+export type PaymentMethod = "card" | "wallet"
 
 // ─── Step 1: Auth Token ───────────────────────────────────────────────────────
 const getAuthToken = async (): Promise<string> => {
@@ -98,7 +93,7 @@ export const createPaymobPaymentLink = async ({
     saveCard?: boolean
     phone?: string
     billingData: { email: string; first_name: string; last_name: string; phone_number: string }
-}): Promise<{ iframeUrl: string; orderId: string; paymentKey: string; method: PaymentMethod }> => {
+}): Promise<{ iframeUrl?: string; redirectUrl?: string; orderId: string; paymentKey: string; method: PaymentMethod }> => {
     try {
         const amountCents = Math.round(amountEGP * 100)
         const authToken = await getAuthToken()
@@ -111,9 +106,27 @@ export const createPaymobPaymentLink = async ({
             billingData,
             method,
             saveCard,
-            ...(phone !== undefined ? { phone } : {}),
+            ...(phone ? { phone } : {}),
         })
 
+        // المحافظ الإلكترونية بتحتاج pay API مباشر مش iframe
+        if (method === "wallet") {
+            const walletPhone = phone || billingData.phone_number
+            if (!walletPhone) throw new AppError("رقم الهاتف مطلوب للدفع بالمحفظة الإلكترونية", 400)
+
+            const payRes = await axios.post(`${BASE_URL}/acceptance/payments/pay`, {
+                source: {
+                    identifier: walletPhone,
+                    subtype: "WALLET",
+                },
+                payment_token: paymentKey,
+            })
+
+            const redirectUrl = payRes.data?.redirect_url || payRes.data?.iframe_redirection_url
+            return { redirectUrl, orderId: String(orderId), paymentKey, method }
+        }
+
+        // البطاقات البنكية بتستخدم iframe
         const iframeId = IFRAME_IDS[method] ?? IFRAME_IDS.card
         const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey}`
 
@@ -216,7 +229,5 @@ export const verifyPaymobHmac = (payload: any, receivedHmac?: string) => {
 // ─── الطرق المتاحة ────────────────────────────────────────────────────────────
 export const getAvailablePaymentMethods = (): { method: PaymentMethod; label: string; available: boolean }[] => [
     { method: "card", label: "بطاقة بنكية (Visa/Mastercard)", available: !!INTEGRATION_IDS.card },
-    { method: "vodafone", label: "Vodafone Cash", available: !!INTEGRATION_IDS.vodafone },
-    { method: "orange", label: "Orange Cash", available: !!INTEGRATION_IDS.orange },
-    { method: "etisalat", label: "Etisalat Cash", available: !!INTEGRATION_IDS.etisalat },
+    { method: "wallet", label: "محافظ إلكترونية (Vodafone/Orange/Etisalat/We)", available: !!INTEGRATION_IDS.wallet },
 ]

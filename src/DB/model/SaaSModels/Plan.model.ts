@@ -13,6 +13,7 @@ export interface IPlanOffer {
     discountPercent: number
     validUntil?:     Date | undefined
     isActive:        boolean
+    applyTo?: "monthly" | "yearly" | "both"
 }
 
 export interface IPlan extends mongoose.Document {
@@ -51,6 +52,7 @@ const PlanOfferSchema = new mongoose.Schema<IPlanOffer>(
         discountPercent: { type: Number,  required: true, min: 1, max: 100 },
         validUntil:      { type: Date },
         isActive:        { type: Boolean, default: true },
+        applyTo:         { type: String, enum: ["monthly", "yearly", "both"], default: "both",}
     },
     { _id: false }
 )

@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import UserModel, { Role } from "../../DB/model/user.model";
 import { AppError } from "../../utils/classError";
 import { sendNotification } from "../task/notification.service";
+import { emitItemAssigned } from "../../utils/EmailEvent";
 import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
 import cloudinary from "../../utils/cloudInary";
@@ -45,6 +46,12 @@ const notifySessionParticipants = async (
             })
         )
     )
+
+    emitItemAssigned({
+        userIds: recipients,
+        title,
+        body: bodyFn(""),
+    })
 }
 
 class sessionService {

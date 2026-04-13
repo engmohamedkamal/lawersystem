@@ -1,11 +1,10 @@
 import { EventEmitter } from "events";
 import { sendEmail } from "./SendEmail";
 import { generateToken } from "./token";
+import UserModel from "../DB/model/user.model";
+import OfficeModel from "../DB/model/SaaSModels/Office.model";
 
 
-/* =========================
-   Event Names
-========================= */
 
 export const EmailEvents = {
   SEND_CONFIRM_EMAIL: "sendEmail",
@@ -14,13 +13,11 @@ export const EmailEvents = {
   SUSPICIOUS_LOGIN: "suspiciousLogin",
   SUBSCRIPTION_EXPIRING_SOON: "subscriptionExpiringSoon",
   SUBSCRIPTION_EXPIRED: "subscriptionExpired",
+  ITEM_ASSIGNED: "itemAssigned",
 } as const;
 
 type EmailEventName = (typeof EmailEvents)[keyof typeof EmailEvents];
 
-/* =========================
-   Payload Types
-========================= */
 
 interface SendConfirmEmailPayload {
   email: string;
@@ -51,6 +48,12 @@ interface SubscriptionExpiredPayload {
   officeName: string;
 }
 
+interface ItemAssignedPayload {
+  userIds: string[];
+  title: string;
+  body: string;
+}
+
 type EmailEventPayloadMap = {
   [EmailEvents.SEND_CONFIRM_EMAIL]: SendConfirmEmailPayload;
   [EmailEvents.FORGET_PASSWORD]: ForgetPasswordPayload;
@@ -58,11 +61,8 @@ type EmailEventPayloadMap = {
   [EmailEvents.SUSPICIOUS_LOGIN]: SuspiciousLoginPayload;
   [EmailEvents.SUBSCRIPTION_EXPIRING_SOON]: SubscriptionExpiringSoonPayload;
   [EmailEvents.SUBSCRIPTION_EXPIRED]: SubscriptionExpiredPayload;
+  [EmailEvents.ITEM_ASSIGNED]: ItemAssignedPayload;
 };
-
-/* =========================
-   Typed EventEmitter
-========================= */
 
 class TypedEventEmitter extends EventEmitter {
   emit<K extends keyof EmailEventPayloadMap>(
@@ -81,22 +81,36 @@ class TypedEventEmitter extends EventEmitter {
 }
 
 export const eventEmitter = new TypedEventEmitter();
-
-/* =========================
-   Shared Email Helper
-========================= */
+ 
 
 const safeSendEmail = async ({
   to,
   subject,
   html,
+  fromName,
 }: {
   to: string;
   subject: string;
   html: string;
+  fromName?: string;
 }) => {
   try {
-    const isSent = await sendEmail({ to, subject, html });
+    let actualFromName = fromName;
+    if (!actualFromName) {
+      try {
+        const user = await UserModel.findOne({ email: to });
+        if (user && user.officeId) {
+          const office = await OfficeModel.findById(user.officeId);
+          if (office) {
+            actualFromName = office.name;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch office name for email sender:', err);
+      }
+    }
+
+    const isSent = await sendEmail({ to, subject, html, fromName: actualFromName });
 
     if (!isSent) {
       console.error(`Failed to send email to ${to}`);
@@ -110,9 +124,7 @@ const safeSendEmail = async ({
   }
 };
 
-/* =========================
-   Event Listeners
-========================= */
+
 
 // eventEmitter.on(EmailEvents.SEND_CONFIRM_EMAIL, async ({ email }) => {
 //   try {
@@ -205,6 +217,7 @@ eventEmitter.on(
       await safeSendEmail({
         to: email,
         subject: "تنبيه بقرب انتهاء الاشتراك",
+        fromName: officeName,
         html: `
           <div style="font-family: Arial, sans-serif; line-height: 1.8;">
             <h2>مرحبًا ${officeName}</h2>
@@ -227,8 +240,9 @@ eventEmitter.on(
       await safeSendEmail({
         to: email,
         subject: "تنبيه بانتهاء الاشتراك",
+        fromName: officeName,
         html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.8;">
+          <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
             <h2>مرحبًا ${officeName}</h2>
             <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
             <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>
@@ -241,9 +255,35 @@ eventEmitter.on(
   }
 );
 
-/* =========================
-   Typed Emit Helpers
-========================= */
+eventEmitter.on(
+  EmailEvents.ITEM_ASSIGNED,
+  async ({ userIds, title, body }) => {
+    try {
+      const users = await UserModel.find({ _id: { $in: userIds }, isDeleted: false });
+      
+      for (const user of users) {
+        if (!user.email) continue;
+        await safeSendEmail({
+          to: user.email,
+          subject: title,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
+              <h2>${title}</h2>
+              <p>مرحباً ${user.UserName}،</p>
+              <p>${body}</p>
+              <br/>
+              <p>يرجى مراجعة النظام لمزيد من التفاصيل.</p>
+            </div>
+          `,
+        });
+      }
+    } catch (error) {
+      console.error("Error in ITEM_ASSIGNED event:", error);
+    }
+  }
+);
+
+
 
 export const emitSendConfirmEmail = (payload: SendConfirmEmailPayload) => {
   eventEmitter.emit(EmailEvents.SEND_CONFIRM_EMAIL, payload);
@@ -273,4 +313,10 @@ export const emitSubscriptionExpired = (
   payload: SubscriptionExpiredPayload
 ) => {
   eventEmitter.emit(EmailEvents.SUBSCRIPTION_EXPIRED, payload);
+};
+
+export const emitItemAssigned = (
+  payload: ItemAssignedPayload
+) => {
+  eventEmitter.emit(EmailEvents.ITEM_ASSIGNED, payload);
 };
