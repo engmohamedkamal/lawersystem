@@ -14,8 +14,8 @@ export const csrfTokenGenerator = (
 
     res.cookie("csrf-token", token, {
       httpOnly: false, 
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true, // Must be true for sameSite: 'none'
+      sameSite: "none", // Allows the cookie to be sent cross-origin (Frontend to API)
       maxAge: 1000 * 60 * 60 * 24, 
     });
   }
@@ -35,6 +35,7 @@ export const csrfProtection = (
 
   const cookieToken = req.cookies["csrf-token"];
   const headerToken = req.headers["x-csrf-token"];
+
 
   if (!cookieToken || !headerToken || cookieToken !== headerToken) {
     return next(

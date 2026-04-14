@@ -54,12 +54,12 @@ const limiter = rateLimit({
 const bootStrap = ()=>{
     app.use(express.json({limit:"50mb"}))
     app.use(express.urlencoded({limit:"50mb",extended:true}))
+    app.set("trust proxy" , 1)
     app.use(cors({
      origin: true,
      credentials: true
     }))
     app.use(helmet())
-    app.set("trust proxy" , 1)
     app.use(limiter)
     app.use(cookieParser());
     
