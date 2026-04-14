@@ -63,24 +63,24 @@ const bootStrap = ()=>{
     app.use(limiter)
     app.use(cookieParser());
     
-    app.use(csrfTokenGenerator);
+    // app.use(csrfTokenGenerator);
 
-    app.get("/csrf-token", (req: Request, res: Response) => {
-      res.status(200).json({
-        message: "success",
-        csrfToken: (req as any).csrfToken,
-      });
-    });
+    // app.get("/csrf-token", (req: Request, res: Response) => {
+    //   res.status(200).json({
+    //     message: "success",
+    //     csrfToken: (req as any).csrfToken,
+    //   });
+    // });
 
-    app.use((req: Request, res: Response, next: NextFunction) => {
-      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token"];
+    // app.use((req: Request, res: Response, next: NextFunction) => {
+    //   const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token"];
 
-      if (excludedPaths.includes(req.path)) {
-        return next();
-      }
+    //   if (excludedPaths.includes(req.path)) {
+    //     return next();
+    //   }
 
-      return csrfProtection(req, res, next);
-    });
+    //   return csrfProtection(req, res, next);
+    // });
 
     app.use("/auth",authRouter);
     app.use("/users" , userRouter);
