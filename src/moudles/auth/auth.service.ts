@@ -55,7 +55,7 @@ class authService {
         })
 
         //refresh token
-        const refresh_token = await generateToken({payload : {id:user._id , email , officeId: user.officeId},
+        const refresh_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature : process.env.REFRESH_TOKEN!,
             options : {expiresIn : "1y", jwtid }
         })
@@ -100,14 +100,14 @@ class authService {
 
         const accessJti = uuidv4();
         const access_token = await generateToken({
-            payload: { id: user._id, role: user.role },
+            payload: {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature: process.env.ACCESS_TOKEN!,
             options: { expiresIn: "1h", jwtid: accessJti },
         });
 
         const refreshJti = uuidv4();
         const new_refresh_token = await generateToken({
-            payload: { id: user._id, email: user.email },
+            payload: {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature: process.env.REFRESH_TOKEN!,
             options: { expiresIn: "1y", jwtid: refreshJti },
         });
@@ -141,8 +141,8 @@ class authService {
 
         res.clearCookie("refresh_token", {
            httpOnly: true,
-           sameSite: "lax",
-           secure: process.env.NODE_ENV === "production",
+           sameSite: "none",
+           secure: true,
         });
         
         return res.status(200).json({ message: "done" , revokeToken})

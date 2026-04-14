@@ -10,6 +10,7 @@ import connectionDB from "./DB/connectionDb"
 import authRouter from "./moudles/auth/auth.controller"
 import userRouter from "./moudles/users/users.controller"
 import cookieParser from "cookie-parser";
+import { csrfTokenGenerator, csrfProtection } from "./middleware/csrf";
 import slotsRouter from "./moudles/Slots/Slots.controller"
 import appointmentRouter from "./moudles/appointment/appointment.controller"
 import CaseTypeRouter from "./moudles/CaseType/Case.controller"
@@ -31,8 +32,6 @@ import legalDocumentRouter from "./moudles/LegalDocument/LegalDocument.controlle
 import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
 import superAdminRouter from "./moudles/SASS/SuperAdmin/SuperAdmin.controller"
 import saasRouter from "./moudles/SASS/subdcripition/subdcripition.controller"
-import OfficeModel from "./DB/model/SaaSModels/Office.model"
-import { sendEmail } from "./utils/SendEmail"
 import mySubscriptionRouter from "./moudles/SASS/Mysubscriptio/MySubscription.controller"
 
 
@@ -53,7 +52,8 @@ const limiter = rateLimit({
 })
 
 const bootStrap = ()=>{
-    app.use(express.json())
+    app.use(express.json({limit:"50mb"}))
+    app.use(express.urlencoded({limit:"50mb",extended:true}))
     app.use(cors({
      origin: true,
      credentials: true
@@ -62,6 +62,25 @@ const bootStrap = ()=>{
     app.set("trust proxy" , 1)
     app.use(limiter)
     app.use(cookieParser());
+    
+    app.use(csrfTokenGenerator);
+
+    app.get("/csrf-token", (req: Request, res: Response) => {
+      res.status(200).json({
+        message: "success",
+        csrfToken: (req as any).csrfToken,
+      });
+    });
+
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token"];
+
+      if (excludedPaths.includes(req.path)) {
+        return next();
+      }
+
+      return csrfProtection(req, res, next);
+    });
 
     app.use("/auth",authRouter);
     app.use("/users" , userRouter);

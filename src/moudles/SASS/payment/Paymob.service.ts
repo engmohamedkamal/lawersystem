@@ -132,7 +132,9 @@ export const createPaymobPaymentLink = async ({
 
         return { iframeUrl, orderId: String(orderId), paymentKey, method }
     } catch (err: any) {
-        throw new AppError(`paymob error: ${err?.response?.data?.message ?? err.message}`, 500)
+        const pErr = err?.response?.data;
+        const msg = typeof pErr === 'object' ? JSON.stringify(pErr) : (pErr || err.message);
+        throw new AppError(`paymob error: ${msg}`, 500)
     }
 }
 
@@ -160,33 +162,13 @@ export const chargeWithToken = async ({
 
         return { success: res.data.success === true, transactionId: String(res.data.id) }
     } catch (err: any) {
-        return { success: false, error: err?.response?.data?.message ?? err.message }
+        const pErr = err?.response?.data;
+        const msg = typeof pErr === 'object' ? JSON.stringify(pErr) : (pErr || err.message);
+        return { success: false, error: msg }
     }
 }
 
 // ─── HMAC Verification ────────────────────────────────────────────────────────
-// export const verifyPaymobHmac = (body: any): boolean => {
-//     const obj = body.obj ?? body
-//     const {
-//         amount_cents, created_at, currency, error_occured,
-//         has_parent_transaction, id, integration_id, is_3d_secure,
-//         is_auth, is_capture, is_refunded, is_standalone_payment,
-//         is_voided, order, owner, pending,
-//         source_data_pan, source_data_sub_type, source_data_type, success,
-//     } = obj
-
-//     const str = [
-//         amount_cents, created_at, currency, error_occured,
-//         has_parent_transaction, id, integration_id, is_3d_secure,
-//         is_auth, is_capture, is_refunded, is_standalone_payment,
-//         is_voided, order?.id, owner, pending,
-//         source_data_pan, source_data_sub_type, source_data_type, success,
-//     ].join("")
-
-//     const hmac = crypto.createHmac("sha512", PAYMOB_HMAC_SECRET).update(str).digest("hex")
-//     return hmac === body.hmac
-// }
-
 export const verifyPaymobHmac = (payload: any, receivedHmac?: string) => {
     if (!receivedHmac) return false
 
