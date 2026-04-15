@@ -2,25 +2,16 @@ import axios from "axios"
 import crypto from "crypto"
 import { AppError } from "../../../utils/classError"
 
-const PAYMOB_API_KEY = process.env.PAYMOB_API_KEY!
-const PAYMOB_HMAC_SECRET = process.env.PAYMOB_HMAC_SECRET!
 const BASE_URL = "https://accept.paymob.com/api"
-
-// ── Integration IDs لكل طريقة دفع ────────────────────────────────────────────
-const INTEGRATION_IDS = {
-    card: process.env.PAYMOB_INTEGRATION_ID_CARD!,
-    wallet: process.env.PAYMOB_INTEGRATION_ID_WALLET!,
-}
-
-const IFRAME_IDS = {
-    card: process.env.PAYMOB_IFRAME_ID_CARD!,
-}
 
 export type PaymentMethod = "card" | "wallet"
 
 // ─── Step 1: Auth Token ───────────────────────────────────────────────────────
 const getAuthToken = async (): Promise<string> => {
-    const res = await axios.post(`${BASE_URL}/auth/tokens`, { api_key: PAYMOB_API_KEY })
+    const apiKey = process.env.PAYMOB_API_KEY
+    if (!apiKey) throw new AppError("Environment variable PAYMOB_API_KEY is not defined", 500)
+    
+    const res = await axios.post(`${BASE_URL}/auth/tokens`, { api_key: apiKey })
     return res.data.token
 }
 
@@ -53,7 +44,9 @@ const getPaymentKey = async ({
     saveCard?: boolean
     phone?: string   // للمحافظ الإلكترونية
 }): Promise<string> => {
-    const integrationId = INTEGRATION_IDS[method]
+    const integrationId = method === "card" 
+        ? process.env.PAYMOB_INTEGRATION_ID_CARD 
+        : process.env.PAYMOB_INTEGRATION_ID_WALLET
     if (!integrationId) throw new AppError(`طريقة الدفع ${method} غير مفعّلة حالياً`, 400)
 
     const body: any = {
@@ -127,7 +120,7 @@ export const createPaymobPaymentLink = async ({
         }
 
         // البطاقات البنكية بتستخدم iframe
-        const iframeId = IFRAME_IDS[method] ?? IFRAME_IDS.card
+        const iframeId = process.env.PAYMOB_IFRAME_ID_CARD
         const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey}`
 
         return { iframeUrl, orderId: String(orderId), paymentKey, method }
@@ -210,6 +203,6 @@ export const verifyPaymobHmac = (payload: any, receivedHmac?: string) => {
 
 // ─── الطرق المتاحة ────────────────────────────────────────────────────────────
 export const getAvailablePaymentMethods = (): { method: PaymentMethod; label: string; available: boolean }[] => [
-    { method: "card", label: "بطاقة بنكية (Visa/Mastercard)", available: !!INTEGRATION_IDS.card },
-    { method: "wallet", label: "محافظ إلكترونية (Vodafone/Orange/Etisalat/We)", available: !!INTEGRATION_IDS.wallet },
+    { method: "card", label: "بطاقة بنكية (Visa/Mastercard)", available: !!process.env.PAYMOB_INTEGRATION_ID_CARD },
+    { method: "wallet", label: "محافظ إلكترونية (Vodafone/Orange/Etisalat/We)", available: !!process.env.PAYMOB_INTEGRATION_ID_WALLET },
 ]
