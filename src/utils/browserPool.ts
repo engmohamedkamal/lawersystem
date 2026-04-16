@@ -46,6 +46,7 @@ const getBrowser = async (): Promise<Browser> => {
 
             browser = await puppeteer.launch({
                 headless: true,
+                executablePath: "/usr/bin/google-chrome",
                 args: LAUNCH_ARGS,
             });
 
