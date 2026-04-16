@@ -60,7 +60,7 @@ const bootStrap = ()=>{
      credentials: true
     }))
     app.use(helmet())
-    app.use(limiter)
+    // app.use(limiter)
     app.use(cookieParser());
     
     // app.use(csrfTokenGenerator);
@@ -138,16 +138,6 @@ const bootStrap = ()=>{
         console.log(`server is running on port ${port} `);
         
     })
-
-    // Graceful shutdown: أغلق الـ browser pool عند إيقاف السيرفر
-    const shutdown = async () => {
-        console.log("[Shutdown] Closing browser pool...");
-        const { closeBrowserPool } = await import("./utils/browserPool.js");
-        await closeBrowserPool();
-        process.exit(0);
-    };
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
 
 }
  

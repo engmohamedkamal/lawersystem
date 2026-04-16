@@ -1,491 +1,496 @@
-import axios     from "axios"
-import { usePage } from "./browserPool"
-import { getCairoFontCSS } from "./fontEmbed"
+import PDFDocument from "pdfkit";
+import axios from "axios";
+import path from "path";
 
-// ─── تحميل صورة وتحويلها لـ base64 ───────────────────────────────────────
-const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+// ─── Fonts ────────────────────────────────────────────────────────────────
+const FONT_REG  = path.join(process.cwd(), "src/utils/fonts/Cairo-Regular.ttf");
+const FONT_BOLD = path.join(process.cwd(), "src/utils/fonts/Cairo-Bold.ttf");
+
+// ─── Colors (RGB 0-255) ──────────────────────────────────────────────────
+const DARK      = [14, 26, 43]   as const;
+const GOLD      = [201, 161, 74] as const;
+const WHITE     = [255, 255, 255] as const;
+const GRAY_BG   = [243, 244, 246] as const;
+const GRAY_BG2  = [249, 250, 251] as const;
+const BORDER    = [229, 231, 235] as const;
+const TEXT_GRAY = [107, 114, 128] as const;
+const RED       = [220, 38, 38]  as const;
+const RED_BG    = [254, 226, 226] as const;
+const RED_DARK  = [153, 27, 27]  as const;
+const GREEN     = [22, 163, 74]  as const;
+const GREEN_BG  = [220, 252, 231] as const;
+const GOLD_BG   = [254, 249, 238] as const;
+
+// ─── Page Constants ──────────────────────────────────────────────────────
+const PAGE_W     = 595.28; // A4 width
+const MARGIN     = 32;
+const CONTENT_W  = PAGE_W - MARGIN * 2;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+const fmt = (val: number) =>
+    val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00";
+
+const fetchLogo = async (url: string): Promise<Buffer | null> => {
     try {
-        const res      = await axios.get(url, { responseType: "arraybuffer" })
-        const base64   = Buffer.from(res.data).toString("base64")
-        const mimeType = res.headers["content-type"] ?? "image/jpeg"
-        return `data:${mimeType};base64,${base64}`
-    } catch {
-        return null
+        const res = await axios.get(url, { responseType: "arraybuffer", timeout: 5000 });
+        return Buffer.from(res.data);
+    } catch { return null; }
+};
+
+// ─── Drawing helpers ─────────────────────────────────────────────────────
+type RGB = readonly [number, number, number];
+
+const rect = (doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, color: RGB) => {
+    doc.save().rect(x, y, w, h).fill(color as unknown as string).restore();
+};
+
+const roundedRect = (doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number, color: RGB) => {
+    doc.save().roundedRect(x, y, w, h, r).fill(color as unknown as string).restore();
+};
+
+const roundedRectStroke = (doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number, strokeColor: RGB) => {
+    doc.save().roundedRect(x, y, w, h, r).lineWidth(1).strokeColor(strokeColor as unknown as string).stroke().restore();
+};
+
+const textR = (doc: PDFKit.PDFDocument, text: string, x: number, y: number, opts: PDFKit.Mixins.TextOptions = {}) => {
+    doc.text(text, x, y, { align: "right", features: ["rtla", "liga", "calt"], ...opts });
+};
+
+const textL = (doc: PDFKit.PDFDocument, text: string, x: number, y: number, opts: PDFKit.Mixins.TextOptions = {}) => {
+    doc.text(text, x, y, { align: "left", features: ["rtla", "liga", "calt"], ...opts });
+};
+
+// ─── Draw Invoice Header ─────────────────────────────────────────────────
+const drawHeader = (
+    doc: PDFKit.PDFDocument,
+    invoice: any,
+    settings: any,
+    logo: Buffer | null,
+    startY: number
+): number => {
+    const headerH = 80;
+    rect(doc, 0, startY, PAGE_W, headerH, DARK);
+    // Gold bottom border
+    rect(doc, 0, startY + headerH, PAGE_W, 4, GOLD);
+
+    // Logo
+    let logoEndX = MARGIN;
+    if (logo) {
+        try {
+            doc.image(logo, PAGE_W - MARGIN - 50, startY + 10, { width: 50, height: 50, fit: [50, 50] });
+        } catch { /* skip bad logo */ }
     }
-}
+
+    // Office name (right side)
+    doc.font(FONT_BOLD).fontSize(18).fillColor(WHITE as unknown as string);
+    textR(doc, settings?.officeName ?? "مكتب المحاماة", MARGIN, startY + 14, { width: CONTENT_W - 70 });
+
+    // Office info
+    doc.font(FONT_REG).fontSize(9).fillColor(GOLD as unknown as string);
+    const infoText = [settings?.officialEmail, settings?.phone].filter(Boolean).join("  |  ");
+    if (infoText) textR(doc, infoText, MARGIN, startY + 38, { width: CONTENT_W - 70 });
+
+    // Invoice number (left side)
+    doc.font(FONT_BOLD).fontSize(20).fillColor(WHITE as unknown as string);
+    textL(doc, `# ${invoice.invoiceNumber}`, MARGIN, startY + 12, { width: 200 });
+
+    // Dates
+    doc.font(FONT_REG).fontSize(9).fillColor(GOLD as unknown as string);
+    const issueDate = new Date(invoice.issueDate).toLocaleDateString("ar-EG");
+    textL(doc, `تاريخ الإصدار: ${issueDate}`, MARGIN, startY + 40, { width: 200 });
+    if (invoice.dueDate) {
+        const dueDate = new Date(invoice.dueDate).toLocaleDateString("ar-EG");
+        textL(doc, `تاريخ الاستحقاق: ${dueDate}`, MARGIN, startY + 54, { width: 200 });
+    }
+
+    return startY + headerH + 4;
+};
+
+// ─── Warning Banner ──────────────────────────────────────────────────────
+const drawWarning = (doc: PDFKit.PDFDocument, text: string, startY: number): number => {
+    const bannerY = startY + 10;
+    roundedRect(doc, MARGIN, bannerY, CONTENT_W, 32, 4, RED_BG);
+    // Right border
+    rect(doc, PAGE_W - MARGIN - 4, bannerY, 4, 32, RED);
+
+    doc.font(FONT_BOLD).fontSize(10).fillColor(RED_DARK as unknown as string);
+    textR(doc, `⚠️ ${text}`, MARGIN + 10, bannerY + 8, { width: CONTENT_W - 30 });
+
+    return bannerY + 42;
+};
+
+// ─── Info Cards ──────────────────────────────────────────────────────────
+const drawCards = (doc: PDFKit.PDFDocument, invoice: any, startY: number): number => {
+    const cardY = startY + 10;
+    const hasCase = !!invoice.legalCase;
+    const cardW = hasCase ? (CONTENT_W - 12) / 2 : CONTENT_W;
+    const cardH = 90;
+
+    // Client card (right)
+    const clientX = hasCase ? MARGIN + cardW + 12 : MARGIN;
+    roundedRect(doc, clientX, cardY, cardW, cardH, 6, GRAY_BG);
+    roundedRectStroke(doc, clientX, cardY, cardW, cardH, 6, BORDER);
+
+    doc.font(FONT_BOLD).fontSize(10).fillColor(GOLD as unknown as string);
+    textR(doc, "العميل", clientX + 10, cardY + 10, { width: cardW - 20 });
+
+    doc.font(FONT_BOLD).fontSize(12).fillColor(DARK as unknown as string);
+    textR(doc, invoice.client?.fullName ?? "-", clientX + 10, cardY + 28, { width: cardW - 20 });
+
+    doc.font(FONT_REG).fontSize(9).fillColor(TEXT_GRAY as unknown as string);
+    const clientInfo = [invoice.client?.phone, invoice.client?.email, invoice.client?.address].filter(Boolean).join("\n");
+    textR(doc, clientInfo, clientX + 10, cardY + 46, { width: cardW - 20, lineGap: 2 });
+
+    // Case card (left) - only if has case
+    if (hasCase) {
+        const caseX = MARGIN;
+        roundedRect(doc, caseX, cardY, cardW, cardH, 6, GRAY_BG);
+        roundedRectStroke(doc, caseX, cardY, cardW, cardH, 6, BORDER);
+
+        doc.font(FONT_BOLD).fontSize(10).fillColor(GOLD as unknown as string);
+        textR(doc, "القضية", caseX + 10, cardY + 10, { width: cardW - 20 });
+
+        doc.font(FONT_BOLD).fontSize(12).fillColor(DARK as unknown as string);
+        textR(doc, invoice.legalCase?.caseNumber ?? "-", caseX + 10, cardY + 28, { width: cardW - 20 });
+
+        doc.font(FONT_REG).fontSize(9).fillColor(TEXT_GRAY as unknown as string);
+        const caseInfo = [
+            `الحالة: ${invoice.legalCase?.status ?? "-"}`,
+            `المحكمة: ${invoice.legalCase?.court ?? "-"}`,
+            `المدينة: ${invoice.legalCase?.city ?? "-"}`,
+        ].join("\n");
+        textR(doc, caseInfo, caseX + 10, cardY + 46, { width: cardW - 20, lineGap: 2 });
+    }
+
+    return cardY + cardH;
+};
+
+// ─── Items Table ─────────────────────────────────────────────────────────
+const drawTable = (doc: PDFKit.PDFDocument, invoice: any, startY: number): number => {
+    const tableY = startY + 14;
+    const colDescW = CONTENT_W * 0.65;
+    const colAmtW  = CONTENT_W * 0.35;
+    const rowH     = 28;
+    const headerH  = 30;
+
+    // Table header
+    rect(doc, MARGIN, tableY, CONTENT_W, headerH, DARK);
+    doc.font(FONT_BOLD).fontSize(10).fillColor(WHITE as unknown as string);
+    textR(doc, "البيان", MARGIN + CONTENT_W - colDescW + 8, tableY + 8, { width: colDescW - 16 });
+    textL(doc, "المبلغ (ج.م)", MARGIN + 8, tableY + 8, { width: colAmtW - 16 });
+
+    let y = tableY + headerH;
+    const items = invoice.items ?? [];
+
+    for (let i = 0; i < items.length; i++) {
+        // Check page break
+        if (y + rowH > 760) {
+            doc.addPage();
+            y = MARGIN;
+        }
+
+        // Alternating background
+        if (i % 2 === 1) rect(doc, MARGIN, y, CONTENT_W, rowH, GRAY_BG2);
+
+        // Bottom border
+        doc.save().moveTo(MARGIN, y + rowH).lineTo(PAGE_W - MARGIN, y + rowH)
+            .lineWidth(0.5).strokeColor(BORDER as unknown as string).stroke().restore();
+
+        // Description
+        doc.font(FONT_REG).fontSize(11).fillColor(DARK as unknown as string);
+        textR(doc, items[i].description ?? "", MARGIN + colAmtW + 8, y + 7, { width: colDescW - 16 });
+
+        // Amount
+        doc.font(FONT_BOLD).fontSize(11).fillColor(DARK as unknown as string);
+        textL(doc, fmt(items[i].amount), MARGIN + 8, y + 7, { width: colAmtW - 16 });
+
+        y += rowH;
+    }
+
+    // Gold divider
+    rect(doc, MARGIN, y, CONTENT_W, 3, GOLD);
+
+    return y + 3;
+};
+
+// ─── Summary Boxes ───────────────────────────────────────────────────────
+const drawBoxes = (doc: PDFKit.PDFDocument, invoice: any, startY: number): number => {
+    const boxY = startY + 12;
+    const hasCase = !!invoice.legalCase;
+    const boxW = hasCase ? (CONTENT_W - 12) / 2 : CONTENT_W;
+
+    const discountAmt = (invoice.subtotal * invoice.discount) / 100;
+    const taxAmt = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100;
+
+    const caseTotal     = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0;
+    const casePaid      = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0;
+    const caseRemaining = Math.max(caseTotal - casePaid, 0);
+
+    // ── Box 1: هذه الفاتورة (right) ──
+    const box1X = hasCase ? MARGIN + boxW + 12 : MARGIN;
+    let box1H = 140;
+    if (invoice.discount > 0) box1H += 18;
+    if (invoice.tax > 0) box1H += 18;
+    if (invoice.paymentMethod) box1H += 18;
+
+    // Check page break
+    if (boxY + box1H > 760) {
+        doc.addPage();
+        return drawBoxes(doc, invoice, MARGIN - 12);
+    }
+
+    // Box container
+    roundedRectStroke(doc, box1X, boxY, boxW, box1H, 6, BORDER);
+
+    // Header
+    roundedRect(doc, box1X, boxY, boxW, 28, 6, DARK);
+    // Fix: fill bottom corners
+    rect(doc, box1X, boxY + 14, boxW, 14, DARK);
+    doc.font(FONT_BOLD).fontSize(10).fillColor(WHITE as unknown as string);
+    textR(doc, "هذه الفاتورة", box1X + 10, boxY + 7, { width: boxW - 20 });
+
+    let row1Y = boxY + 36;
+
+    // Subtotal
+    const drawBoxRow = (label: string, value: string, color: RGB = DARK) => {
+        doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+        textR(doc, label, box1X + 10, row1Y, { width: boxW - 20 });
+        doc.font(FONT_BOLD).fontSize(10).fillColor(color as unknown as string);
+        textL(doc, value, box1X + 10, row1Y, { width: boxW - 20 });
+        row1Y += 18;
+    };
+
+    drawBoxRow("المجموع الفرعي:", `${fmt(invoice.subtotal)} ج.م`);
+    if (invoice.discount > 0) drawBoxRow(`الخصم (${invoice.discount}%):`, `- ${fmt(discountAmt)} ج.م`, RED);
+    if (invoice.tax > 0) drawBoxRow(`الضريبة (${invoice.tax}%):`, `+ ${fmt(taxAmt)} ج.م`);
+
+    // Divider
+    doc.save().moveTo(box1X + 10, row1Y).lineTo(box1X + boxW - 10, row1Y)
+        .lineWidth(0.5).strokeColor(BORDER as unknown as string).stroke().restore();
+    row1Y += 6;
+
+    // Total (gold bar)
+    roundedRect(doc, box1X + 8, row1Y, boxW - 16, 26, 4, GOLD);
+    doc.font(FONT_BOLD).fontSize(12).fillColor(DARK as unknown as string);
+    textR(doc, "الإجمالي:", box1X + 16, row1Y + 5, { width: (boxW - 32) / 2 });
+    textL(doc, `${fmt(invoice.total)} ج.م`, box1X + 16, row1Y + 5, { width: (boxW - 32) / 2 });
+    row1Y += 34;
+
+    // Paid
+    doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+    textR(doc, "المدفوع:", box1X + 10, row1Y, { width: boxW - 20 });
+    doc.font(FONT_BOLD).fontSize(10).fillColor((invoice.paidAmount > 0 ? GREEN : RED) as unknown as string);
+    textL(doc, `${fmt(invoice.paidAmount ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
+    row1Y += 18;
+
+    // Remaining
+    doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+    textR(doc, "المتبقي:", box1X + 10, row1Y, { width: boxW - 20 });
+    doc.font(FONT_BOLD).fontSize(10).fillColor(((invoice.remaining ?? 0) > 0 ? RED : GREEN) as unknown as string);
+    textL(doc, `${fmt(invoice.remaining ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
+    row1Y += 18;
+
+    // Payment method
+    if (invoice.paymentMethod) {
+        doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+        textR(doc, "طريقة الدفع:", box1X + 10, row1Y, { width: boxW - 20 });
+        doc.font(FONT_BOLD).fontSize(10).fillColor(DARK as unknown as string);
+        textL(doc, invoice.paymentMethod, box1X + 10, row1Y, { width: boxW - 20 });
+        row1Y += 18;
+    }
+
+    let bottomY = row1Y;
+
+    // ── Box 2: ملخص الأتعاب (left) ── only if has case
+    if (hasCase) {
+        const box2X = MARGIN;
+        const box2H = 130;
+
+        roundedRectStroke(doc, box2X, boxY, boxW, box2H, 6, BORDER);
+
+        // Gold Header
+        roundedRect(doc, box2X, boxY, boxW, 28, 6, GOLD);
+        rect(doc, box2X, boxY + 14, boxW, 14, GOLD);
+        doc.font(FONT_BOLD).fontSize(10).fillColor(DARK as unknown as string);
+        textR(doc, "ملخص الأتعاب", box2X + 10, boxY + 7, { width: boxW - 20 });
+
+        let row2Y = boxY + 36;
+
+        // Total fees
+        doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+        textR(doc, "إجمالي الأتعاب:", box2X + 10, row2Y, { width: boxW - 20 });
+        doc.font(FONT_BOLD).fontSize(10).fillColor((caseTotal === 0 ? RED : DARK) as unknown as string);
+        textL(doc, `${fmt(caseTotal)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
+        row2Y += 18;
+
+        // Paid
+        doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+        textR(doc, "إجمالي المدفوع:", box2X + 10, row2Y, { width: boxW - 20 });
+        doc.font(FONT_BOLD).fontSize(10).fillColor((casePaid > 0 ? GREEN : RED) as unknown as string);
+        textL(doc, `${fmt(casePaid)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
+        row2Y += 18;
+
+        // Divider
+        doc.save().moveTo(box2X + 10, row2Y).lineTo(box2X + boxW - 10, row2Y)
+            .lineWidth(0.5).strokeColor(GOLD as unknown as string).stroke().restore();
+        row2Y += 8;
+
+        // Remaining box
+        const remColor = caseRemaining > 0 ? RED_BG : GREEN_BG;
+        roundedRect(doc, box2X + 8, row2Y, boxW - 16, 30, 4, remColor);
+
+        doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+        textR(doc, "المتبقي:", box2X + 16, row2Y + 7, { width: (boxW - 32) / 2 });
+
+        doc.font(FONT_BOLD).fontSize(12).fillColor((caseRemaining > 0 ? RED : GREEN) as unknown as string);
+        const remText = caseRemaining === 0 ? "تم السداد بالكامل ✓" : `${fmt(caseRemaining)} ج.م`;
+        textL(doc, remText, box2X + 16, row2Y + 7, { width: (boxW - 32) / 2 });
+
+        row2Y += 38;
+        if (row2Y > bottomY) bottomY = row2Y;
+    }
+
+    return bottomY;
+};
+
+// ─── Notes ───────────────────────────────────────────────────────────────
+const drawNotes = (doc: PDFKit.PDFDocument, notes: string, startY: number): number => {
+    if (!notes) return startY;
+
+    const noteY = startY + 10;
+    const noteH = 50;
+
+    if (noteY + noteH > 760) {
+        doc.addPage();
+        return drawNotes(doc, notes, MARGIN);
+    }
+
+    roundedRect(doc, MARGIN, noteY, CONTENT_W, noteH, 6, GRAY_BG);
+
+    doc.font(FONT_BOLD).fontSize(9).fillColor(GOLD as unknown as string);
+    textR(doc, "ملاحظات", MARGIN + 12, noteY + 8, { width: CONTENT_W - 24 });
+
+    doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
+    textR(doc, notes, MARGIN + 12, noteY + 24, { width: CONTENT_W - 24 });
+
+    return noteY + noteH;
+};
+
+// ─── Footer ──────────────────────────────────────────────────────────────
+const drawFooter = (doc: PDFKit.PDFDocument, invoice: any, settings: any) => {
+    const footerH = 40;
+    const footerY = 841.89 - footerH; // Bottom of A4
+
+    rect(doc, 0, footerY, PAGE_W, footerH, DARK);
+    rect(doc, 0, footerY, PAGE_W, 3, GOLD);
+
+    doc.font(FONT_REG).fontSize(8).fillColor(TEXT_GRAY as unknown as string);
+    const line1 = [settings?.officeName, settings?.addressDetail, settings?.phone].filter(Boolean).join("  |  ");
+    doc.text(line1, MARGIN, footerY + 10, { width: CONTENT_W, align: "center", features: ["rtla"] });
+
+    doc.font(FONT_REG).fontSize(8).fillColor(GOLD as unknown as string);
+    const line2 = `فاتورة ${invoice.invoiceNumber}  |  ${new Date().toLocaleDateString("ar-EG")}`;
+    doc.text(line2, MARGIN, footerY + 24, { width: CONTENT_W, align: "center", features: ["rtla"] });
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════════════════════
 
 export const generateInvoicePDF = async (invoice: any, settings: any, warning?: string): Promise<Buffer> => {
+    const logo = settings?.logo ? await fetchLogo(settings.logo) : null;
 
-    // لوجو المكتب
-    let logoSrc = ""
-    if (settings?.logo) {
-        const b64 = await fetchImageAsBase64(settings.logo)
-        if (b64) logoSrc = b64
-    }
+    const caseTotal  = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0;
+    const casePaid   = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0;
+    const isOverpaid = invoice.legalCase && casePaid > caseTotal && caseTotal > 0;
 
-    const fmt = (val: number) =>
-        val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00"
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: "A4",
+                margin: 0,
+                info: {
+                    Title: `فاتورة ${invoice.invoiceNumber}`,
+                    Author: settings?.officeName ?? "مكتب المحاماة",
+                },
+            });
 
-    const caseTotal     = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0
-    const casePaid      = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0
-    const caseRemaining = Math.max(caseTotal - casePaid, 0)
-    const isOverpaid    = invoice.legalCase && casePaid > caseTotal && caseTotal > 0
+            doc.registerFont("Cairo", FONT_REG);
+            doc.registerFont("CairoBold", FONT_BOLD);
 
-    const discountAmt = (invoice.subtotal * invoice.discount) / 100
-    const taxAmt      = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100
+            const chunks: Buffer[] = [];
+            doc.on("data", (c: Buffer) => chunks.push(c));
+            doc.on("end", () => resolve(Buffer.concat(chunks)));
+            doc.on("error", reject);
 
-    // خط Cairo مُضمّن كـ base64
-    const fontCSS = getCairoFontCSS()
+            // ─── Draw ───
+            let y = drawHeader(doc, invoice, settings, logo, 0);
 
-    // ─── HTML الفاتورة ────────────────────────────────────────────────────
-    const html = `
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  ${fontCSS}
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Cairo', sans-serif; background: #fff; color: #0E1A2B; font-size: 13px; }
+            if (isOverpaid) {
+                y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)`, y);
+            }
 
-  /* HEADER */
-  .header { background: #0E1A2B; color: #fff; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #C9A14A; }
-  .header-left { display: flex; align-items: center; gap: 16px; }
-  .header-left img { height: 64px; width: 64px; object-fit: cover; border-radius: 8px; }
-  .office-name { font-size: 22px; font-weight: 700; }
-  .office-info { color: #C9A14A; font-size: 11px; margin-top: 4px; }
-  .header-right { text-align: left; }
-  .invoice-num { font-size: 24px; font-weight: 700; color: #fff; }
-  .invoice-dates { color: #C9A14A; font-size: 11px; margin-top: 6px; }
+            y = drawCards(doc, invoice, y);
+            y = drawTable(doc, invoice, y);
+            y = drawBoxes(doc, invoice, y);
+            y = drawNotes(doc, invoice.notes, y);
+            drawFooter(doc, invoice, settings);
 
-  /* INFO CARDS */
-  .cards { display: flex; gap: 16px; padding: 20px 32px; }
-  .card { flex: 1; background: #F3F4F6; border-radius: 8px; padding: 14px 16px; border: 1px solid #E5E7EB; }
-  .card-title { color: #C9A14A; font-weight: 700; font-size: 12px; margin-bottom: 8px; letter-spacing: 1px; }
-  .card-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-  .card-info { color: #6B7280; font-size: 11px; line-height: 1.7; }
-
-  /* TABLE */
-  .table-wrap { padding: 0 32px 16px; }
-  table { width: 100%; border-collapse: collapse; }
-  .table-header { background: #0E1A2B; color: #fff; }
-  .table-header th { padding: 10px 14px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
-  .table-header th:last-child { text-align: left; }
-  tr:nth-child(even) td { background: #F9FAFB; }
-  td { padding: 10px 14px; border-bottom: 1px solid #E5E7EB; font-size: 13px; }
-  td:last-child { text-align: left; font-weight: 700; }
-  .table-divider { height: 3px; background: #C9A14A; }
-
-  /* BOXES */
-  .boxes { display: flex; gap: 16px; padding: 16px 32px; }
-  .box { flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid #E5E7EB; }
-  .box-header { padding: 10px 14px; font-weight: 700; font-size: 12px; letter-spacing: 1px; }
-  .box1 .box-header { background: #0E1A2B; color: #fff; }
-  .box2 .box-header { background: #C9A14A; color: #0E1A2B; }
-  .box-body { padding: 12px 14px; background: #F9FAFB; }
-  .box2-body { background: #FEF9EE; }
-  .box-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
-  .box-row .label { color: #6B7280; }
-  .box-row .val { font-weight: 600; }
-  .box-divider { height: 1px; background: #E5E7EB; margin: 8px 0; }
-  .box2 .box-divider { background: #C9A14A; }
-  .total-row { background: #C9A14A; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; margin: 8px 0; }
-  .total-row span { font-weight: 700; font-size: 14px; color: #0E1A2B; }
-  .remaining-box { border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; margin-top: 8px; }
-  .remaining-box.has-remaining { background: #FEE2E2; }
-  .remaining-box.paid-full     { background: #DCFCE7; }
-  .red   { color: #DC2626; }
-  .green { color: #16A34A; }
-  .zero  { color: #DC2626; }
-
-  /* NOTES */
-  .notes { margin: 0 32px 16px; background: #F3F4F6; border-radius: 8px; padding: 12px 16px; }
-  .notes-title { color: #C9A14A; font-weight: 700; font-size: 11px; letter-spacing: 1px; margin-bottom: 6px; }
-  .notes-text  { color: #6B7280; font-size: 12px; }
-
-  /* WARNING BANNER */
-  .warning-banner { background: #FEE2E2; border-right: 4px solid #DC2626; padding: 10px 20px; margin: 0 32px 16px; border-radius: 6px; display: flex; align-items: center; gap: 10px; }
-  .warning-banner .warn-icon { font-size: 18px; }
-  .warning-banner .warn-text { color: #991B1B; font-size: 12px; font-weight: 700; }
-
-  /* FOOTER */
-  .footer { background: #0E1A2B; border-top: 3px solid #C9A14A; padding: 14px 32px; text-align: center; }
-  .footer p { color: #6B7280; font-size: 10px; }
-  .footer span { color: #C9A14A; }
-</style>
-</head>
-<body>
-
-<!-- HEADER -->
-<div class="header">
-  <div class="header-left">
-    ${logoSrc ? `<img src="${logoSrc}" alt="logo"/>` : ""}
-    <div>
-      <div class="office-name">${settings?.officeName ?? "مكتب المحاماة"}</div>
-      <div class="office-info">${settings?.officialEmail ?? ""}<br/>${settings?.phone ?? ""}</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <div class="invoice-num"># ${invoice.invoiceNumber}</div>
-    <div class="invoice-dates">
-      تاريخ الإصدار: ${new Date(invoice.issueDate).toLocaleDateString("ar-EG")}<br/>
-      ${invoice.dueDate ? `تاريخ الاستحقاق: ${new Date(invoice.dueDate).toLocaleDateString("ar-EG")}` : ""}
-    </div>
-  </div>
-</div>
-
-<!-- WARNING BANNER -->
-${isOverpaid ? `
-<div class="warning-banner">
-  <span class="warn-icon">⚠️</span>
-  <span class="warn-text">تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)</span>
-</div>` : ""}
-
-<!-- CLIENT + CASE CARDS -->
-<div class="cards">
-  <div class="card">
-    <div class="card-title">العميل</div>
-    <div class="card-name">${invoice.client?.fullName ?? "-"}</div>
-    <div class="card-info">
-      ${invoice.client?.phone   ?? ""}<br/>
-      ${invoice.client?.email   ?? ""}<br/>
-      ${invoice.client?.address ?? ""}
-    </div>
-  </div>
-  ${invoice.legalCase ? `
-  <div class="card">
-    <div class="card-title">القضية</div>
-    <div class="card-name">${invoice.legalCase?.caseNumber ?? "-"}</div>
-    <div class="card-info">
-      الحالة: ${invoice.legalCase?.status ?? "-"}<br/>
-      المحكمة: ${invoice.legalCase?.court ?? "-"}<br/>
-      المدينة: ${invoice.legalCase?.city  ?? "-"}
-    </div>
-  </div>` : ""}
-</div>
-
-<!-- ITEMS TABLE -->
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr class="table-header">
-        <th>البيان</th>
-        <th>المبلغ (ج.م)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${invoice.items?.map((item: any) => `
-        <tr>
-          <td>${item.description}</td>
-          <td>${fmt(item.amount)}</td>
-        </tr>
-      `).join("") ?? ""}
-    </tbody>
-  </table>
-  <div class="table-divider"></div>
-</div>
-
-<!-- BOXES -->
-<div class="boxes">
-
-  <!-- مربع 1 — الفاتورة الحالية -->
-  <div class="box box1" style="${!invoice.legalCase ? 'max-width:100%;flex:1' : ''}">
-    <div class="box-header">هذه الفاتورة</div>
-    <div class="box-body">
-      <div class="box-row">
-        <span class="label">المجموع الفرعي:</span>
-        <span class="val">${fmt(invoice.subtotal)} ج.م</span>
-      </div>
-      ${invoice.discount > 0 ? `
-      <div class="box-row">
-        <span class="label">الخصم (${invoice.discount}%):</span>
-        <span class="val red">- ${fmt(discountAmt)} ج.م</span>
-      </div>` : ""}
-      ${invoice.tax > 0 ? `
-      <div class="box-row">
-        <span class="label">الضريبة (${invoice.tax}%):</span>
-        <span class="val">+ ${fmt(taxAmt)} ج.م</span>
-      </div>` : ""}
-      <div class="box-divider"></div>
-      <div class="total-row">
-        <span>الإجمالي:</span>
-        <span>${fmt(invoice.total)} ج.م</span>
-      </div>
-      <div class="box-row">
-        <span class="label">المدفوع:</span>
-        <span class="val ${invoice.paidAmount > 0 ? "green" : "zero"}">${fmt(invoice.paidAmount ?? 0)} ج.م</span>
-      </div>
-      <div class="box-row">
-        <span class="label">المتبقي:</span>
-        <span class="val ${(invoice.remaining ?? 0) > 0 ? "red" : "green"}">${fmt(invoice.remaining ?? 0)} ج.م</span>
-      </div>
-      ${invoice.paymentMethod ? `
-      <div class="box-row">
-        <span class="label">طريقة الدفع:</span>
-        <span class="val">${invoice.paymentMethod}</span>
-      </div>` : ""}
-    </div>
-  </div>
-
-  <!-- مربع 2 — ملخص الأتعاب (فقط لو في قضية) -->
-  ${invoice.legalCase ? `
-  <div class="box box2">
-    <div class="box-header">ملخص الأتعاب</div>
-    <div class="box-body box2-body">
-      <div class="box-row">
-        <span class="label">إجمالي الأتعاب:</span>
-        <span class="val ${caseTotal === 0 ? "zero" : ""}">${fmt(caseTotal)} ج.م</span>
-      </div>
-      <div class="box-row">
-        <span class="label">إجمالي المدفوع:</span>
-        <span class="val ${casePaid > 0 ? "green" : "zero"}">${fmt(casePaid)} ج.م</span>
-      </div>
-      <div class="box-divider"></div>
-      <div class="remaining-box ${caseRemaining > 0 ? "has-remaining" : "paid-full"}">
-        <span class="label">المتبقي:</span>
-        <span class="val ${caseRemaining > 0 ? "red" : "green"}" style="font-size:15px;font-weight:700;">
-          ${caseRemaining === 0 ? "تم السداد بالكامل ✓" : fmt(caseRemaining) + " ج.م"}
-        </span>
-      </div>
-    </div>
-  </div>` : ""}
-</div>
-
-<!-- NOTES -->
-${invoice.notes ? `
-<div class="notes">
-  <div class="notes-title">ملاحظات</div>
-  <div class="notes-text">${invoice.notes}</div>
-</div>` : ""}
-
-<!-- FOOTER -->
-<div class="footer">
-  <p>${settings?.officeName ?? ""} ${settings?.addressDetail ? "| " + settings.addressDetail : ""} ${settings?.phone ? "| " + settings.phone : ""}</p>
-  <p style="margin-top:4px;"><span>فاتورة ${invoice.invoiceNumber}</span> | تم الإنشاء بتاريخ ${new Date().toLocaleDateString("ar-EG")}</p>
-</div>
-
-</body>
-</html>
-`
-
-    // ─── تحويل HTML لـ PDF باستخدام Browser Pool ──────────────────────────
-    return usePage(async (page) => {
-        await page.setContent(html, { waitUntil: "domcontentloaded" })
-
-        const pdfBuffer = await page.pdf({
-            format:            "A4",
-            printBackground:   true,
-            margin: { top: "0", right: "0", bottom: "0", left: "0" },
-        })
-
-        return Buffer.from(pdfBuffer)
-    })
-}
+            doc.end();
+        } catch (err) {
+            reject(err);
+        }
+    });
+};
 
 // ─── طباعة كل فواتير العميل في PDF واحد ──────────────────────────────────
 export const generateAllInvoicesPDF = async (invoices: any[], settings: any): Promise<Buffer> => {
-    if (!invoices.length) throw new Error("No invoices found")
+    if (!invoices.length) throw new Error("No invoices found");
 
-    const fmt = (val: number) =>
-        val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00"
+    const logo = settings?.logo ? await fetchLogo(settings.logo) : null;
 
-    let logoSrc = ""
-    if (settings?.logo) {
-        const b64 = await fetchImageAsBase64(settings.logo)
-        if (b64) logoSrc = b64
-    }
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: "A4",
+                margin: 0,
+                info: {
+                    Title: `فواتير العملاء`,
+                    Author: settings?.officeName ?? "مكتب المحاماة",
+                },
+            });
 
-    // خط Cairo مُضمّن كـ base64
-    const fontCSS = getCairoFontCSS()
+            doc.registerFont("Cairo", FONT_REG);
+            doc.registerFont("CairoBold", FONT_BOLD);
 
-    const invoicesHTML = invoices.map((invoice: any, index: number) => {
-        const caseTotal     = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0
-        const casePaid      = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0
-        const caseRemaining = Math.max(caseTotal - casePaid, 0)
-        const isOverpaid    = invoice.legalCase && casePaid > caseTotal && caseTotal > 0
-        const discountAmt   = (invoice.subtotal * invoice.discount) / 100
-        const taxAmt        = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100
+            const chunks: Buffer[] = [];
+            doc.on("data", (c: Buffer) => chunks.push(c));
+            doc.on("end", () => resolve(Buffer.concat(chunks)));
+            doc.on("error", reject);
 
-        return `
-<div class="invoice-page ${index > 0 ? "page-break" : ""}">
+            invoices.forEach((invoice, idx) => {
+                if (idx > 0) doc.addPage();
 
-  <div class="header">
-    <div class="header-left">
-      ${logoSrc ? `<img src="${logoSrc}" alt="logo"/>` : ""}
-      <div>
-        <div class="office-name">${settings?.officeName ?? "مكتب المحاماة"}</div>
-        <div class="office-info">${settings?.officialEmail ?? ""}<br/>${settings?.phone ?? ""}</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="invoice-num"># ${invoice.invoiceNumber}</div>
-      <div class="invoice-dates">
-        تاريخ الإصدار: ${new Date(invoice.issueDate).toLocaleDateString("ar-EG")}<br/>
-        ${invoice.dueDate ? `تاريخ الاستحقاق: ${new Date(invoice.dueDate).toLocaleDateString("ar-EG")}` : ""}
-      </div>
-    </div>
-  </div>
+                const caseTotal  = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0;
+                const casePaid   = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0;
+                const isOverpaid = invoice.legalCase && casePaid > caseTotal && caseTotal > 0;
 
-  ${isOverpaid ? `
-  <div class="warning-banner">
-    <span class="warn-icon">⚠️</span>
-    <span class="warn-text">تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)</span>
-  </div>` : ""}
+                let y = drawHeader(doc, invoice, settings, logo, 0);
 
-  <div class="cards">
-    <div class="card">
-      <div class="card-title">العميل</div>
-      <div class="card-name">${invoice.client?.fullName ?? "-"}</div>
-      <div class="card-info">
-        ${invoice.client?.phone ?? ""}<br/>
-        ${invoice.client?.email ?? ""}<br/>
-        ${invoice.client?.address ?? ""}
-      </div>
-    </div>
-    ${invoice.legalCase ? `
-    <div class="card">
-      <div class="card-title">القضية</div>
-      <div class="card-name">${invoice.legalCase?.caseNumber ?? "-"}</div>
-      <div class="card-info">
-        الحالة: ${invoice.legalCase?.status ?? "-"}<br/>
-        المحكمة: ${invoice.legalCase?.court ?? "-"}<br/>
-        المدينة: ${invoice.legalCase?.city  ?? "-"}
-      </div>
-    </div>` : ""}
-  </div>
+                if (isOverpaid) {
+                    y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)`, y);
+                }
 
-  <div class="table-wrap">
-    <table>
-      <thead><tr class="table-header"><th>البيان</th><th>المبلغ (ج.م)</th></tr></thead>
-      <tbody>
-        ${invoice.items?.map((item: any) => `
-          <tr><td>${item.description}</td><td>${fmt(item.amount)}</td></tr>
-        `).join("") ?? ""}
-      </tbody>
-    </table>
-    <div class="table-divider"></div>
-  </div>
+                y = drawCards(doc, invoice, y);
+                y = drawTable(doc, invoice, y);
+                y = drawBoxes(doc, invoice, y);
+                y = drawNotes(doc, invoice.notes, y);
+                drawFooter(doc, invoice, settings);
+            });
 
-  <div class="boxes">
-    <div class="box box1" style="${!invoice.legalCase ? "flex:1" : ""}">
-      <div class="box-header">هذه الفاتورة</div>
-      <div class="box-body">
-        <div class="box-row"><span class="label">المجموع الفرعي:</span><span class="val">${fmt(invoice.subtotal)} ج.م</span></div>
-        ${invoice.discount > 0 ? `<div class="box-row"><span class="label">الخصم (${invoice.discount}%):</span><span class="val red">- ${fmt(discountAmt)} ج.م</span></div>` : ""}
-        ${invoice.tax > 0 ? `<div class="box-row"><span class="label">الضريبة (${invoice.tax}%):</span><span class="val">+ ${fmt(taxAmt)} ج.م</span></div>` : ""}
-        <div class="box-divider"></div>
-        <div class="total-row"><span>الإجمالي:</span><span>${fmt(invoice.total)} ج.م</span></div>
-        <div class="box-row"><span class="label">المدفوع:</span><span class="val ${invoice.paidAmount > 0 ? "green" : "zero"}">${fmt(invoice.paidAmount ?? 0)} ج.م</span></div>
-        <div class="box-row"><span class="label">المتبقي:</span><span class="val ${(invoice.remaining ?? 0) > 0 ? "red" : "green"}">${fmt(invoice.remaining ?? 0)} ج.م</span></div>
-        ${invoice.paymentMethod ? `<div class="box-row"><span class="label">طريقة الدفع:</span><span class="val">${invoice.paymentMethod}</span></div>` : ""}
-      </div>
-    </div>
-    ${invoice.legalCase ? `
-    <div class="box box2">
-      <div class="box-header">ملخص الأتعاب</div>
-      <div class="box-body box2-body">
-        <div class="box-row"><span class="label">إجمالي الأتعاب:</span><span class="val ${caseTotal === 0 ? "zero" : ""}">${fmt(caseTotal)} ج.م</span></div>
-        <div class="box-row"><span class="label">إجمالي المدفوع:</span><span class="val ${casePaid > 0 ? "green" : "zero"}">${fmt(casePaid)} ج.م</span></div>
-        <div class="box-divider"></div>
-        <div class="remaining-box ${caseRemaining > 0 ? "has-remaining" : "paid-full"}">
-          <span class="label">المتبقي:</span>
-          <span class="val ${caseRemaining > 0 ? "red" : "green"}" style="font-size:15px;font-weight:700;">
-            ${caseRemaining === 0 ? "تم السداد بالكامل ✓" : fmt(caseRemaining) + " ج.م"}
-          </span>
-        </div>
-      </div>
-    </div>` : ""}
-  </div>
-
-  ${invoice.notes ? `
-  <div class="notes">
-    <div class="notes-title">ملاحظات</div>
-    <div class="notes-text">${invoice.notes}</div>
-  </div>` : ""}
-
-  <div class="footer">
-    <p>${settings?.officeName ?? ""} ${settings?.addressDetail ? "| " + settings.addressDetail : ""}</p>
-    <p><span>فاتورة ${invoice.invoiceNumber}</span> | ${new Date().toLocaleDateString("ar-EG")}</p>
-  </div>
-
-</div>`
-    }).join("")
-
-    const html = `
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  ${fontCSS}
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Cairo', sans-serif; background: #fff; color: #0E1A2B; font-size: 13px; }
-  .page-break { page-break-before: always; }
-  .invoice-page { min-height: 100vh; }
-  .header { background: #0E1A2B; color: #fff; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #C9A14A; }
-  .header-left { display: flex; align-items: center; gap: 16px; }
-  .header-left img { height: 64px; width: 64px; object-fit: cover; border-radius: 8px; }
-  .office-name { font-size: 22px; font-weight: 700; }
-  .office-info { color: #C9A14A; font-size: 11px; margin-top: 4px; }
-  .header-right { text-align: left; }
-  .invoice-num { font-size: 24px; font-weight: 700; }
-  .invoice-dates { color: #C9A14A; font-size: 11px; margin-top: 6px; }
-  .warning-banner { background: #FEE2E2; border-right: 4px solid #DC2626; padding: 10px 20px; margin: 0 32px 16px; border-radius: 6px; display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-  .warn-text { color: #991B1B; font-size: 12px; font-weight: 700; }
-  .cards { display: flex; gap: 16px; padding: 20px 32px; }
-  .card { flex: 1; background: #F3F4F6; border-radius: 8px; padding: 14px 16px; border: 1px solid #E5E7EB; }
-  .card-title { color: #C9A14A; font-weight: 700; font-size: 12px; margin-bottom: 8px; }
-  .card-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
-  .card-info { color: #6B7280; font-size: 11px; line-height: 1.7; }
-  .table-wrap { padding: 0 32px 16px; }
-  table { width: 100%; border-collapse: collapse; }
-  .table-header { background: #0E1A2B; color: #fff; }
-  .table-header th { padding: 10px 14px; font-size: 12px; font-weight: 700; }
-  .table-header th:last-child { text-align: left; }
-  tr:nth-child(even) td { background: #F9FAFB; }
-  td { padding: 10px 14px; border-bottom: 1px solid #E5E7EB; font-size: 13px; }
-  td:last-child { text-align: left; font-weight: 700; }
-  .table-divider { height: 3px; background: #C9A14A; }
-  .boxes { display: flex; gap: 16px; padding: 16px 32px; }
-  .box { flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid #E5E7EB; }
-  .box-header { padding: 10px 14px; font-weight: 700; font-size: 12px; }
-  .box1 .box-header { background: #0E1A2B; color: #fff; }
-  .box2 .box-header { background: #C9A14A; color: #0E1A2B; }
-  .box-body { padding: 12px 14px; background: #F9FAFB; }
-  .box2-body { background: #FEF9EE; }
-  .box-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
-  .box-row .label { color: #6B7280; }
-  .box-row .val { font-weight: 600; }
-  .box-divider { height: 1px; background: #E5E7EB; margin: 8px 0; }
-  .box2 .box-divider { background: #C9A14A; }
-  .total-row { background: #C9A14A; border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; margin: 8px 0; }
-  .total-row span { font-weight: 700; font-size: 14px; color: #0E1A2B; }
-  .remaining-box { border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; margin-top: 8px; }
-  .remaining-box.has-remaining { background: #FEE2E2; }
-  .remaining-box.paid-full { background: #DCFCE7; }
-  .red { color: #DC2626; } .green { color: #16A34A; } .zero { color: #DC2626; }
-  .notes { margin: 0 32px 16px; background: #F3F4F6; border-radius: 8px; padding: 12px 16px; }
-  .notes-title { color: #C9A14A; font-weight: 700; font-size: 11px; margin-bottom: 6px; }
-  .notes-text { color: #6B7280; font-size: 12px; }
-  .footer { background: #0E1A2B; border-top: 3px solid #C9A14A; padding: 14px 32px; text-align: center; }
-  .footer p { color: #6B7280; font-size: 10px; }
-  .footer span { color: #C9A14A; }
-</style>
-</head>
-<body>
-${invoicesHTML}
-</body>
-</html>`
-
-    return usePage(async (page) => {
-        await page.setContent(html, { waitUntil: "domcontentloaded" })
-
-        const pdfBuffer = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            margin: { top: "0", right: "0", bottom: "0", left: "0" },
-        })
-
-        return Buffer.from(pdfBuffer)
-    })
-}
+            doc.end();
+        } catch (err) {
+            reject(err);
+        }
+    });
+};
