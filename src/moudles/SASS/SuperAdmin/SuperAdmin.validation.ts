@@ -159,3 +159,11 @@ export const updateOfficeFeaturesSchema = {
     features: z.record(z.string(), z.any()),
   }),
 };
+
+export const broadcastMessageSchema = {
+  body: z.object({
+    title: z.string().optional(),
+    message: z.string().min(1, "محتوى الرسالة مطلوب"),
+    type: z.enum(["info", "warning", "error"]).optional(),
+  }),
+};

@@ -167,6 +167,14 @@ superAdminRouter.get("/getRevenueByPlan/:planId",
     SS.getRevenueByPlan
 )
 
+//BROADCAST SYSTEM MESSAGES
+superAdminRouter.post("/broadcastMessage",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.broadcastMessageSchema),
+    SS.broadcastMessage
+)
+
 //DASHBOARD
 
 superAdminRouter.get("/dashboard",

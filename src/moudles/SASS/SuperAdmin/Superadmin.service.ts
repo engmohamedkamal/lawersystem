@@ -6,6 +6,7 @@ import CouponModel from "../../../DB/model/SaaSModels/Coupon.model";
 import PaymentModel from "../../../DB/model/SaaSModels/Payment.model";
 import UserModel from "../../../DB/model/user.model";
 import { sendEmail } from "../../../utils/SendEmail";
+import { getIO } from "../../../utils/socket";
 
 
 const buildFeaturesFromPlan = (plan: any): Record<string, any> => {
@@ -416,6 +417,23 @@ class SuperAdminService {
         return res.status(200).json({ message: "success", coupon: couponWithStats })
     }
 
+    //BROADCAST
+    broadcastMessage = async (req: Request, res: Response, next: NextFunction) => {
+        const { title, message, type } = req.body;
+
+        const io = getIO();
+        if (io) {
+            io.emit("system_announcement", {
+                title: title || "إشعار إداري",
+                message,
+                type: type || "warning",
+                createdAt: new Date()
+            });
+        }
+
+        return res.status(200).json({ message: "Broadcast sent successfully" });
+    }
+
     //DASHBOARD
     dashboard = async (req: Request , res: Response , next: NextFunction)=>{
         const now = new Date()
@@ -693,6 +711,8 @@ class SuperAdminService {
  
         return res.status(200).json({ message: "success", plan: plan.name, data })
     }
+
+
 
 
 }

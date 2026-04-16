@@ -8,7 +8,7 @@ export const uploadBuffer = (
   resourceType: "auto" | "raw" | "image" = "raw",
   publicId?: string
 ) => {
-  return new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
+  return new Promise<{ secure_url: string; public_id: string; bytes: number }>((resolve, reject) => {
     const options: UploadApiOptions = {
       folder,
       resource_type: resourceType,
@@ -28,6 +28,7 @@ export const uploadBuffer = (
         resolve({
           secure_url: result.secure_url,
           public_id: result.public_id,
+          bytes: result.bytes,
         })
       }
     )

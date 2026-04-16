@@ -73,7 +73,7 @@ const bootStrap = ()=>{
     // });
 
     // app.use((req: Request, res: Response, next: NextFunction) => {
-    //   const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token"];
+    //   const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook"];
 
     //   if (excludedPaths.includes(req.path)) {
     //     return next();
@@ -81,6 +81,8 @@ const bootStrap = ()=>{
 
     //   return csrfProtection(req, res, next);
     // });
+
+    
 
     app.use("/auth",authRouter);
     app.use("/users" , userRouter);
@@ -136,6 +138,16 @@ const bootStrap = ()=>{
         console.log(`server is running on port ${port} `);
         
     })
+
+    // Graceful shutdown: أغلق الـ browser pool عند إيقاف السيرفر
+    const shutdown = async () => {
+        console.log("[Shutdown] Closing browser pool...");
+        const { closeBrowserPool } = await import("./utils/browserPool.js");
+        await closeBrowserPool();
+        process.exit(0);
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
 
 }
  

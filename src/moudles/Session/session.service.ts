@@ -8,6 +8,7 @@ import SessionModel from "../../DB/model/session.model";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -238,7 +239,10 @@ class sessionService {
  
         const session = await SessionModel.findOne({ _id: sessionId, isDeleted: false, officeId: req.user?.officeId })
         if (!session) throw new AppError("session not found", 404)
- 
+
+        const officeId = req.user?.officeId;
+        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
         const ext     = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
         const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
@@ -249,7 +253,7 @@ class sessionService {
         const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
         const finalPublicId = `${sanitizedBaseName}.${ext}`
  
-        const { secure_url, public_id } = await uploadBuffer(req.file.buffer,
+        const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer,
             `sessions/${sessionId}/attachments`,
             resourceType,
             finalPublicId
@@ -264,12 +268,15 @@ class sessionService {
                         url:        secure_url,
                         publicId:   public_id,
                         name:       safeName,
+                        sizeBytes:  bytes,
                         uploadedAt: new Date(),
                     }
                 }
             },
             { new: true }
         )
+
+        await incrementStorage(officeId as any, bytes);
  
         return res.status(200).json({ message: "Attachment uploaded successfully", session: updated })
     }
@@ -287,6 +294,7 @@ class sessionService {
         if (!attachment) throw new AppError("attachment not found", 404)
  
         await cloudinary.uploader.destroy(attachment.publicId)
+        await decrementStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
  
         const updated = await SessionModel.findOneAndUpdate(
             { _id: sessionId, officeId: req.user?.officeId },

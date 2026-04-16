@@ -1,5 +1,6 @@
-import puppeteer from "puppeteer";
 import { ILegalDocument } from "../DB/model/legalDocument.model";
+import { usePage } from "./browserPool";
+import { getAmiriFontCSS } from "./fontEmbed";
 
 const escapeHtml = (value: unknown): string =>
   String(value ?? "")
@@ -87,13 +88,16 @@ export const buildLegalDocumentHTML = (doc: any, settings: any): string => {
     day: "numeric",
   });
 
+  // خط Amiri مُضمّن محلياً (لو متاح)
+  const amiriFontCSS = getAmiriFontCSS();
+
   return `
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8" />
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
+  ${amiriFontCSS}
 
   @page {
     size: A4;
@@ -274,25 +278,9 @@ export const generateLegalDocumentPDF = async (
 ): Promise<Buffer> => {
   const html = buildLegalDocumentHTML(doc, settings);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-
-  try {
-    const page = await browser.newPage();
-
+  return usePage(async (page) => {
     await page.setContent(html, {
-      waitUntil: "networkidle0",
-      timeout: 60000,
-    });
-
-    await page.evaluate(async () => {
-      // @ts-ignore
-      if (document.fonts?.ready) {
-        // @ts-ignore
-        await document.fonts.ready;
-      }
+      waitUntil: "domcontentloaded",
     });
 
     const pdfBuffer = await page.pdf({
@@ -301,9 +289,6 @@ export const generateLegalDocumentPDF = async (
       margin: { top: "0", right: "0", bottom: "0", left: "0" },
     });
 
-    await page.close();
     return Buffer.from(pdfBuffer);
-  } finally {
-    await browser.close();
-  }
+  });
 };

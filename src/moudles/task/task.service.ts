@@ -8,6 +8,7 @@ import ClientModel from "../../DB/model/client.model";
 import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
+import { checkStorageLimit, incrementStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 class taskService {
@@ -49,6 +50,8 @@ class taskService {
         })
 
         if (req.file) {
+            await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
             const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
             const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
             const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
@@ -59,7 +62,7 @@ class taskService {
             const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
             const finalPublicId = `${sanitizedBaseName}.${ext}`
 
-            const { secure_url, public_id } = await uploadBuffer(
+            const { secure_url, public_id, bytes } = await uploadBuffer(
                 req.file.buffer,
                 `tasks/${task._id}/attachments`,
                 resourceType,
@@ -70,9 +73,11 @@ class taskService {
                 url: secure_url,
                 publicId: public_id,
                 name: safeName,
+                sizeBytes: bytes,
             } as any)
 
             await task.save()
+            await incrementStorage(officeId as any, bytes);
         }
 
         const populated = await TaskModel.findById(task._id)

@@ -14,7 +14,8 @@ export interface IUser extends mongoose.Document{
     jobTitle : string,
     ProfilePhoto?: {
         url: string,
-        PublicId: string
+        PublicId: string,
+        sizeBytes?: number
     },
     lawyerRegistrationNo?: string,
     role:Role,
@@ -40,7 +41,8 @@ const UserSchema = new mongoose.Schema<IUser>({
     lawyerRegistrationNo: { type: String ,  minLength : 7 , maxLength : 7  },
     ProfilePhoto: {
         url:{ type : String},
-        PublicId: { type : String}
+        PublicId: { type : String},
+        sizeBytes: { type : Number, default: 0 }
     },
     role : {type : String , default : Role.STAFF},
     phone : {type : Number , required : true},

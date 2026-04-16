@@ -4,10 +4,12 @@ import { completeExpiredAppointments } from "./completeAppointments.job";
 import InvoiceModel from "../DB/model/invoice.model";
 import { sessionReminderJob } from "./Session.cron";
 import { startExpirePlanOffersCron } from "./expirePlanOffers";
+import { syncOfficeStorage } from "./syncStorage.cron";
 
 let appointmentsJobRunning = false;
 let reminderJobRunning = false;
 let invoiceJobRunning = false;
+let storageSyncJobRunning = false;
 
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
@@ -116,6 +118,32 @@ export const startCronJobs = () => {
       }
     } finally {
       invoiceJobRunning = false;
+    }
+  });
+
+  cron.schedule("0 2 * * *", async () => {
+    if (storageSyncJobRunning) {
+        console.warn("[CRON] storage sync skipped: previous run still active");
+        return;
+    }
+
+    if (!isDbConnected()) {
+        console.warn("[CRON] DB not connected, skipping storage sync");
+        return;
+    }
+
+    storageSyncJobRunning = true;
+
+    try {
+        await syncOfficeStorage();
+    } catch (error: any) {
+        if (isMongoConnectionError(error)) {
+        console.warn("[CRON] DB unavailable during storage sync, skipping");
+        } else {
+        console.error("[STORAGE SYNC CRON ERROR]", error);
+        }
+    } finally {
+        storageSyncJobRunning = false;
     }
   });
 

@@ -14,6 +14,7 @@ export interface IDocument {
   url:        string;
   publicId:   string;
   name:       string;
+  sizeBytes:  number;
   uploadedAt: Date;
 }
 
@@ -59,6 +60,7 @@ const DocumentSchema = new mongoose.Schema<IDocument>(
     url:        { type: String, required: true },
     publicId:   { type: String, required: true },
     name:       { type: String, required: true, trim: true },
+    sizeBytes:  { type: Number, default: 0 },
     uploadedAt: { type: Date, default: Date.now },
   },
   { _id: false }

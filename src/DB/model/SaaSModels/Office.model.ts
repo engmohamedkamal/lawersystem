@@ -37,6 +37,7 @@ export interface IOffice extends mongoose.Document {
     subscription: ISubscription
     features:     IOfficeFeatures 
     isActive:     boolean
+    storageUsedBytes: number
     createdAt:    Date
     updatedAt:    Date
 }
@@ -73,6 +74,7 @@ const OfficeSchema = new mongoose.Schema<IOffice>(
         subscription: { type: SubscriptionSchema, default: () => ({}) },
         features:     { type: mongoose.Schema.Types.Mixed, default: {} },
         isActive:     { type: Boolean, default: true },
+        storageUsedBytes: { type: Number, default: 0 },
     },
     { timestamps: true }
 )

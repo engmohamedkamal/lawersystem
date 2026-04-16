@@ -5,6 +5,7 @@ import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
+import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
 
 
 class SettingsService {
@@ -97,36 +98,44 @@ class SettingsService {
     updateLogo = async (req: Request, res: Response, next: NextFunction) => {
          if (!req.file) throw new AppError("No image uploaded", 400)
 
-         const existing = await SettingsModel.findOne({ officeId: req.user?.officeId })
-         if (existing?.logoPublicId) {
-           await cloudinary.uploader.destroy(existing.logoPublicId)
-         }
+         const officeId = req.user?.officeId;
+         await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
 
-         const { secure_url, public_id } = await uploadBuffer(req.file.buffer, "settings/logo")
+         const existing = await SettingsModel.findOne({ officeId })
+         const oldSizeBytes = existing?.logoSizeBytes || 0;
+
+         const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer, "settings/logo")
 
          const settings = await SettingsModel.findOneAndUpdate(
-           { officeId: req.user?.officeId },
-           { $set: { logo: secure_url, logoPublicId: public_id } },
+           { officeId },
+           { $set: { logo: secure_url, logoPublicId: public_id, logoSizeBytes: bytes } },
            { new: true, upsert: true }
          )
 
+         await incrementStorage(officeId as any, bytes);
+
+         if (existing?.logoPublicId) {
+           await cloudinary.uploader.destroy(existing.logoPublicId)
+           await decrementStorage(officeId as any, oldSizeBytes);
+         }
+
          return res.status(200).json({ message: "Logo updated successfully", settings })
-
-
     }
 
     deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
-        
-         const settings = await SettingsModel.findOne({ officeId: req.user?.officeId })
+         const officeId = req.user?.officeId;
+         const settings = await SettingsModel.findOne({ officeId })
          if (!settings) throw new AppError("Settings not found", 404)
          if (!settings.logo) throw new AppError("No logo to delete", 400)
 
          if (settings.logoPublicId) {
            await cloudinary.uploader.destroy(settings.logoPublicId)
+           await decrementStorage(officeId as any, settings.logoSizeBytes || 0);
          }
 
          settings.logo        = undefined
          settings.logoPublicId = undefined
+         settings.logoSizeBytes = 0
          await settings.save()
 
          return res.status(200).json({ message: "Logo deleted successfully" })

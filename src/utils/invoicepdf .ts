@@ -1,5 +1,6 @@
-import puppeteer from "puppeteer"
 import axios     from "axios"
+import { usePage } from "./browserPool"
+import { getCairoFontCSS } from "./fontEmbed"
 
 // ─── تحميل صورة وتحويلها لـ base64 ───────────────────────────────────────
 const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
@@ -33,6 +34,9 @@ export const generateInvoicePDF = async (invoice: any, settings: any, warning?: 
     const discountAmt = (invoice.subtotal * invoice.discount) / 100
     const taxAmt      = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100
 
+    // خط Cairo مُضمّن كـ base64
+    const fontCSS = getCairoFontCSS()
+
     // ─── HTML الفاتورة ────────────────────────────────────────────────────
     const html = `
 <!DOCTYPE html>
@@ -40,7 +44,7 @@ export const generateInvoicePDF = async (invoice: any, settings: any, warning?: 
 <head>
 <meta charset="UTF-8"/>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+  ${fontCSS}
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Cairo', sans-serif; background: #fff; color: #0E1A2B; font-size: 13px; }
 
@@ -264,48 +268,45 @@ ${invoice.notes ? `
 </html>
 `
 
-    // ─── تحويل HTML لـ PDF ────────────────────────────────────────────────
-    const browser = await puppeteer.launch({
-        headless: true,
-        args:     ["--no-sandbox", "--disable-setuid-sandbox"],
+    // ─── تحويل HTML لـ PDF باستخدام Browser Pool ──────────────────────────
+    return usePage(async (page) => {
+        await page.setContent(html, { waitUntil: "domcontentloaded" })
+
+        const pdfBuffer = await page.pdf({
+            format:            "A4",
+            printBackground:   true,
+            margin: { top: "0", right: "0", bottom: "0", left: "0" },
+        })
+
+        return Buffer.from(pdfBuffer)
     })
-
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: "networkidle0" })
-
-    const pdfBuffer = await page.pdf({
-        format:            "A4",
-        printBackground:   true,
-        margin: { top: "0", right: "0", bottom: "0", left: "0" },
-    })
-
-    await browser.close()
-    return Buffer.from(pdfBuffer)
 }
 
 // ─── طباعة كل فواتير العميل في PDF واحد ──────────────────────────────────
 export const generateAllInvoicesPDF = async (invoices: any[], settings: any): Promise<Buffer> => {
-    return new Promise(async (resolve, reject) => {
-        if (!invoices.length) reject(new Error("No invoices found"))
+    if (!invoices.length) throw new Error("No invoices found")
 
-        const fmt = (val: number) =>
-            val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00"
+    const fmt = (val: number) =>
+        val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00"
 
-        let logoSrc = ""
-        if (settings?.logo) {
-            const b64 = await fetchImageAsBase64(settings.logo)
-            if (b64) logoSrc = b64
-        }
+    let logoSrc = ""
+    if (settings?.logo) {
+        const b64 = await fetchImageAsBase64(settings.logo)
+        if (b64) logoSrc = b64
+    }
 
-        const invoicesHTML = invoices.map((invoice: any, index: number) => {
-            const caseTotal     = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0
-            const casePaid      = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0
-            const caseRemaining = Math.max(caseTotal - casePaid, 0)
-            const isOverpaid    = invoice.legalCase && casePaid > caseTotal && caseTotal > 0
-            const discountAmt   = (invoice.subtotal * invoice.discount) / 100
-            const taxAmt        = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100
+    // خط Cairo مُضمّن كـ base64
+    const fontCSS = getCairoFontCSS()
 
-            return `
+    const invoicesHTML = invoices.map((invoice: any, index: number) => {
+        const caseTotal     = invoice.legalCase?.fees?.totalAmount ?? invoice.total ?? 0
+        const casePaid      = invoice.legalCase?.fees?.paidAmount  ?? invoice.paidAmount ?? 0
+        const caseRemaining = Math.max(caseTotal - casePaid, 0)
+        const isOverpaid    = invoice.legalCase && casePaid > caseTotal && caseTotal > 0
+        const discountAmt   = (invoice.subtotal * invoice.discount) / 100
+        const taxAmt        = (invoice.subtotal * (1 - invoice.discount / 100) * invoice.tax) / 100
+
+        return `
 <div class="invoice-page ${index > 0 ? "page-break" : ""}">
 
   <div class="header">
@@ -408,15 +409,15 @@ export const generateAllInvoicesPDF = async (invoices: any[], settings: any): Pr
   </div>
 
 </div>`
-        }).join("")
+    }).join("")
 
-        const html = `
+    const html = `
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8"/>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+  ${fontCSS}
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Cairo', sans-serif; background: #fff; color: #0E1A2B; font-size: 13px; }
   .page-break { page-break-before: always; }
@@ -476,22 +477,8 @@ ${invoicesHTML}
 </body>
 </html>`
 
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        })
-
-        const page = await browser.newPage()
-
-        await page.setContent(html, {
-            waitUntil: "networkidle0",
-            timeout: 60000,
-        })
-
-        await page.evaluate(async () => {
-            // @ts-ignore
-            await document.fonts.ready
-        })
+    return usePage(async (page) => {
+        await page.setContent(html, { waitUntil: "domcontentloaded" })
 
         const pdfBuffer = await page.pdf({
             format: "A4",
@@ -499,8 +486,6 @@ ${invoicesHTML}
             margin: { top: "0", right: "0", bottom: "0", left: "0" },
         })
 
-        await browser.close()
-        resolve(Buffer.from(pdfBuffer))
+        return Buffer.from(pdfBuffer)
     })
 }
-

@@ -9,6 +9,7 @@ export interface ISessionAttachment {
     url:        string
     publicId:   string
     name:       string
+    sizeBytes:  number
     uploadedAt: Date
 }
 
@@ -38,6 +39,7 @@ const SessionAttachmentSchema = new mongoose.Schema<ISessionAttachment>(
         url:        { type: String, required: true },
         publicId:   { type: String, required: true },
         name:       { type: String, required: true },
+        sizeBytes:  { type: Number, default: 0 },
         uploadedAt: { type: Date,   default: Date.now },
     },
     { _id: false }

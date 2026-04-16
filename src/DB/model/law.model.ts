@@ -7,6 +7,7 @@ export interface ILaw extends mongoose.Document {
   category: "EGYPTIAN_LAW" | "CONSTITUTION";
   fileUrl?: string;
   filePublicId?: string;
+  fileSizeBytes?: number;
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +24,7 @@ const LawSchema = new mongoose.Schema<ILaw>(
     },
     fileUrl: { type: String },
     filePublicId: { type: String },
+    fileSizeBytes: { type: Number, default: 0 },
     createdBy: { type: mongoose.Types.ObjectId, ref: "User", required: true },
   },
   {

@@ -18,7 +18,7 @@ export interface ITask extends mongoose.Document {
     status:      TaskStatus
     priority:    TaskPriority
     dueDate?:    Date
-    attachments: { url: string; publicId: string; name: string }[]
+    attachments: { url: string; publicId: string; name: string; sizeBytes: number }[]
     isDeleted:   boolean
     createdAt:   Date
     updatedAt:   Date
@@ -41,6 +41,7 @@ const TaskSchema = new mongoose.Schema<ITask>(
                 url:       { type: String, required: true },
                 publicId:  { type: String, required: true },
                 name:      { type: String, required: true },
+                sizeBytes: { type: Number, default: 0 },
             }],
             default: [],
         },

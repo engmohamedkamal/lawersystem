@@ -10,6 +10,7 @@ import SessionModel from "../../DB/model/session.model";
 import { sendNotification } from "../task/notification.service";
 import { emitItemAssigned } from "../../utils/EmailEvent";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -299,6 +300,9 @@ class LegalCaseService {
         const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
+        const officeId = req.user?.officeId;
+        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
         const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
         const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
@@ -309,7 +313,7 @@ class LegalCaseService {
         const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
         const finalPublicId = `${sanitizedBaseName}.${ext}`
 
-        const { secure_url, public_id } = await uploadBuffer(req.file.buffer,
+        const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer,
              `cases/${id}/attachments`,
             resourceType,
             finalPublicId
@@ -323,12 +327,15 @@ class LegalCaseService {
                         url:        secure_url,
                         publicId:   public_id,
                         name:       safeName,
+                        sizeBytes:  bytes,
                         uploadedAt: new Date(),
                     },
                 },
             },
             { new: true }
         )
+
+        await incrementStorage(officeId as any, bytes);
 
         return res.status(200).json({ message: "Attachment uploaded successfully", case: updated })
     }
@@ -340,10 +347,11 @@ class LegalCaseService {
         const legalCase = await LegalCaseModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!legalCase) throw new AppError("case not found", 404)
 
-        const attachment = legalCase.attachments.find((a: { publicId: string }) => a.publicId === decodeURIComponent(publicId))
+        const attachment = legalCase.attachments.find((a: any) => a.publicId === decodeURIComponent(publicId))
         if (!attachment) throw new AppError("attachment not found", 404)
 
         await cloudinary.uploader.destroy(attachment.publicId)
+        await decrementStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
 
         const updated = await LegalCaseModel.findOneAndUpdate(
             { _id: id, officeId: req.user?.officeId },

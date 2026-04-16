@@ -33,6 +33,7 @@ export interface IAttachment {
   url:        string;
   publicId:   string;
   name:       string;
+  sizeBytes:  number;
   uploadedAt: Date;
 }
 
@@ -88,6 +89,7 @@ const AttachmentSchema = new mongoose.Schema<IAttachment>(
     url:        { type: String, required: true },
     publicId:   { type: String, required: true },
     name:       { type: String, required: true, trim: true },
+    sizeBytes:  { type: Number, default: 0 },
     uploadedAt: { type: Date, default: Date.now },
   },
   { _id: false }

@@ -11,7 +11,7 @@ export const upsertSettingsSchema = {
     governorate: z.string().trim().optional(),
     country: z.string().trim().optional(),
     mapEmbedUrl: z.string()
-      .trim().url("invalid URL").refine((val) => val.startsWith("https://www.google.com/maps/embed"),{ message: "must be a valid Google Maps embed URL" }),
+      .trim().url("invalid URL").refine((val) => val.startsWith("https://www.google.com/maps/embed"),{ message: "must be a valid Google Maps embed URL" }).optional(),
     
   }),
 }

@@ -9,8 +9,8 @@ import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
-
 
 class usersService {
     constructor(){}
@@ -38,11 +38,13 @@ class usersService {
 
          const hash = await HASH(password);
 
-         let profilePhoto: { url: string; publicId: string } | undefined;
+         let profilePhoto: { url: string; publicId: string; sizeBytes?: number } | undefined;
 
          if (req.file) {
+           await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
            const result = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
-           profilePhoto = { url: result.secure_url, publicId: result.public_id }
+           profilePhoto = { url: result.secure_url, publicId: result.public_id, sizeBytes: result.bytes }
+           await incrementStorage(officeId as any, result.bytes);
          }
 
          const user = new UserModel({
@@ -271,18 +273,25 @@ class usersService {
       const user = await UserModel.findById(req.user?._id);
       if (!user) throw new AppError("User not found", 404);
 
-      const oldPublicId = (user as any)?.ProfilePhoto?.publicId;
+      const officeId = req.user?.officeId;
+      await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
 
-      const { secure_url, public_id } = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
+      const oldPublicId = (user as any)?.ProfilePhoto?.PublicId || (user as any)?.ProfilePhoto?.publicId;
+      const oldSizeBytes = (user as any)?.ProfilePhoto?.sizeBytes || 0;
+
+      const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
 
       const updatedUser = await UserModel.findByIdAndUpdate(
         req.user?._id,
-        { $set: { ProfilePhoto: { url: secure_url, publicId: public_id } } },
+        { $set: { ProfilePhoto: { url: secure_url, PublicId: public_id, sizeBytes: bytes } } },
         { new: true }
       );
 
+      await incrementStorage(officeId as any, bytes);
+
       if (oldPublicId) {
         await cloudinary.uploader.destroy(oldPublicId);
+        await decrementStorage(officeId as any, oldSizeBytes);
       }
 
       return res.status(200).json({

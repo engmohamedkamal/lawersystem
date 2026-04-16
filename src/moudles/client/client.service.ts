@@ -8,6 +8,7 @@ import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import InvoiceModel from "../../DB/model/invoice.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
+import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -298,6 +299,8 @@ class ClientService {
         const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
+        const officeId = req.user?.officeId;
+        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
 
         const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
@@ -311,7 +314,7 @@ class ClientService {
         const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
         const finalPublicId = `${sanitizedBaseName}.${ext}`
 
-        const { secure_url, public_id } = await uploadBuffer(
+        const { secure_url, public_id, bytes } = await uploadBuffer(
           req.file.buffer,
           `clients/${id}/documents`,
           resourceType,
@@ -326,12 +329,16 @@ class ClientService {
                 url: secure_url,
                 publicId: public_id,
                 name: safeName,
+                sizeBytes: bytes,
                 uploadedAt: new Date(),
               },
             },
           },
           { returnDocument: "after" }
         )
+
+        await incrementStorage(officeId as any, bytes);
+
         return res.status(200).json({ message: "Document uploaded successfully", client: updated })
     }
 
@@ -342,10 +349,11 @@ class ClientService {
         const client = await ClientModel.findOne({ _id: id, isDeleted: false, officeId: req.user?.officeId })
         if (!client) throw new AppError("client not found", 404)
 
-        const doc = client.documents.find((d: { publicId: string }) => d.publicId === decodeURIComponent(publicId))
+        const doc = client.documents.find((d: any) => d.publicId === decodeURIComponent(publicId))
         if (!doc) throw new AppError("document not found", 404)
 
         await cloudinary.uploader.destroy(doc.publicId)
+        await decrementStorage(req.user?.officeId as any, doc.sizeBytes || 0);
 
         const updated = await ClientModel.findOneAndUpdate(
             { _id: id, officeId: req.user?.officeId },
