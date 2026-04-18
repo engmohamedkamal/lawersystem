@@ -51,13 +51,13 @@ class authService {
         //access token
         const access_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature : process.env.ACCESS_TOKEN!,
-            options : {expiresIn : "3d" , jwtid }
+            options : {expiresIn : "1m" , jwtid }
         })
 
         //refresh token
         const refresh_token = await generateToken({payload : {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature : process.env.REFRESH_TOKEN!,
-            options : {expiresIn : "1y", jwtid }
+            options : {expiresIn : "30d", jwtid }
         })
 
         res.cookie("refresh_token", refresh_token, {
@@ -102,14 +102,14 @@ class authService {
         const access_token = await generateToken({
             payload: {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature: process.env.ACCESS_TOKEN!,
-            options: { expiresIn: "1h", jwtid: accessJti },
+            options: { expiresIn: "1m", jwtid: accessJti },
         });
 
         const refreshJti = uuidv4();
         const new_refresh_token = await generateToken({
             payload: {id:user._id ,role :user.role ,userName : user.UserName , officeId: user.officeId},
             signature: process.env.REFRESH_TOKEN!,
-            options: { expiresIn: "1y", jwtid: refreshJti },
+            options: { expiresIn: "30d", jwtid: refreshJti },
         });
 
         if (decoded?.jti) {
