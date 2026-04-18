@@ -60,27 +60,27 @@ const bootStrap = ()=>{
      credentials: true
     }))
     app.use(helmet())
-    // app.use(limiter)
+    app.use(limiter)
     app.use(cookieParser());
     
-    // app.use(csrfTokenGenerator);
+    app.use(csrfTokenGenerator);
 
-    // app.get("/csrf-token", (req: Request, res: Response) => {
-    //   res.status(200).json({
-    //     message: "success",
-    //     csrfToken: (req as any).csrfToken,
-    //   });
-    // });
+    app.get("/csrf-token", (req: Request, res: Response) => {
+      res.status(200).json({
+        message: "success",
+        csrfToken: (req as any).csrfToken,
+      });
+    });
 
-    // app.use((req: Request, res: Response, next: NextFunction) => {
-    //   const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook"];
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook"];
 
-    //   if (excludedPaths.includes(req.path)) {
-    //     return next();
-    //   }
+      if (excludedPaths.includes(req.path)) {
+        return next();
+      }
 
-    //   return csrfProtection(req, res, next);
-    // });
+      return csrfProtection(req, res, next);
+    });
 
     
 

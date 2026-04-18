@@ -79,18 +79,7 @@ export const releaseStorage = async (
 
   const updatedOffice = await OfficeModel.findOneAndUpdate(
     { _id: officeId },
-    [
-      {
-        $set: {
-          storageUsedBytes: {
-            $max: [
-              { $subtract: [{ $ifNull: ["$storageUsedBytes", 0] }, bytes] },
-              0
-            ]
-          }
-        }
-      }
-    ],
+    { $inc: { storageUsedBytes: -bytes } },
     { new: true }
   );
 

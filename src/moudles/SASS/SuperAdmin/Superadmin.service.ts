@@ -760,12 +760,8 @@ class SuperAdminService {
         return res.status(200).json({ message: "success", plan: plan.name, data })
     }
 
-    // ── STORAGE MANAGEMENT ──────────────────────────────────────────────
+    //STORAGE MANAGEMENT
 
-    /**
-     * Manually triggers a full Cloudinary-verified storage sync for all offices.
-     * POST /superadmin/triggerStorageSync
-     */
     triggerStorageSync = async (req: Request, res: Response, next: NextFunction) => {
         const startTime = Date.now();
         await syncOfficeStorage();
@@ -777,11 +773,6 @@ class SuperAdminService {
         });
     }
 
-    /**
-     * Returns a detailed storage audit for a specific office.
-     * Shows per-file comparison: MongoDB bytes vs Cloudinary actual bytes.
-     * GET /superadmin/auditStorage/:officeId
-     */
     auditOfficeStorage = async (req: Request, res: Response, next: NextFunction) => {
         const { officeId } = req.params;
 
@@ -938,9 +929,5 @@ class SuperAdminService {
     }
 
 }
-
-
-
-
 
 export default new SuperAdminService()

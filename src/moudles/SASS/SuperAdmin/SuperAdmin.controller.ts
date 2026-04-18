@@ -51,7 +51,7 @@ superAdminRouter.delete("/deletePlan/:planId",
     SS.deletePlan
 )
 
-//CRUD FOR FEATURES
+//CRUD FOR ONE PLAN FEATURES
 superAdminRouter.post("/addFeature/:planId",
     authentication(TokenType.access),
     isSuperAdmin,
@@ -71,6 +71,28 @@ superAdminRouter.put("/updateFeature/:planId/:key",
     isSuperAdmin,
     validation(SV.updateFeatureSchema),
     SS.updateFeatureForOnePlan
+)
+
+//CRUD FOR ALL PLANS FEATURES
+superAdminRouter.post("/addFeatureToAllPlans",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.addFeatureSchema),
+    SS.addFeatureToAllPlans
+)
+
+superAdminRouter.delete("/removeFeatureFromAllPlans/:key",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.featureParamSchema),
+    SS.removeFeatureFromAllPlans
+)
+
+superAdminRouter.put("/updateFeatureInAllPlans/:key",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.updateFeatureSchema),
+    SS.updateFeatureInAllPlans
 )
 
 //CRUD FOR PLAN OFFER
@@ -130,7 +152,6 @@ superAdminRouter.get("/getOffice/:officeId",
     validation(SV.officeIdParamSchema),
     SS.getOfficeById
 )
-
 
 superAdminRouter.put("/updateOfficeSubscription/:officeId",
     authentication(TokenType.access),
