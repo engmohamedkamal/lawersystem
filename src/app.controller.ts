@@ -63,7 +63,7 @@ const bootStrap = ()=>{
     app.use(limiter)
     app.use(cookieParser());
     
-    const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook" , "/subscription/registerOffice"];
+    const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/payments/webhook" , "/subscription/register"];
 
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (excludedPaths.includes(req.path)) {
