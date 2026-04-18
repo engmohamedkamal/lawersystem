@@ -63,7 +63,14 @@ const bootStrap = ()=>{
     app.use(limiter)
     app.use(cookieParser());
     
-    app.use(csrfTokenGenerator);
+    const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook" , "/subscription/registerOffice"];
+
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (excludedPaths.includes(req.path)) {
+        return next();
+      }
+      return csrfTokenGenerator(req, res, next);
+    });
 
     app.get("/csrf-token", (req: Request, res: Response) => {
       res.status(200).json({
@@ -73,12 +80,9 @@ const bootStrap = ()=>{
     });
 
     app.use((req: Request, res: Response, next: NextFunction) => {
-      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook" , "/subscription/registerOffice"];
-      
       if (excludedPaths.includes(req.path)) {
         return next();
       }
-
       return csrfProtection(req, res, next);
     });
 
