@@ -4,35 +4,99 @@ import { getFeatureValue } from "./planFeature.helper";
 import { PLAN_FEATURES } from "../moudles/SASS/constants/planFeatures";
 import { AppError } from "../utils/classError";
 
-
-export const checkStorageLimit = async (officeId: string | Types.ObjectId, fileBytes: number) => {
+/**
+ * Pre-flight check — verifies the office has enough storage
+ * WITHOUT incrementing the counter.
+ * Call this BEFORE uploading to Cloudinary to fail fast.
+ */
+export const checkStorageAvailable = async (
+  officeId: string | Types.ObjectId,
+  estimatedBytes: number
+) => {
   const office = await OfficeModel.findById(officeId);
   if (!office) throw new AppError("المكتب غير موجود", 404);
 
   const maxStorage = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
-  if (typeof maxStorage !== "number") {
+  if (typeof maxStorage !== "number" || maxStorage < 0) {
     throw new AppError("Feature 'STORAGE_MAX' is not configured properly", 500);
   }
 
-  const currentUsed = office.storageUsedBytes || 0;
+  const currentUsage = office.storageUsedBytes || 0;
+  if (currentUsage + estimatedBytes > maxStorage) {
+    throw new AppError("مساحة التخزين المتوفرة في خطتك الحالية غير كافية", 403);
+  }
+};
 
-  if (currentUsed + fileBytes > maxStorage) {
+export const reserveStorage = async (
+  officeId: string | Types.ObjectId,
+  fileBytes: number
+) => {
+  if (!fileBytes || fileBytes <= 0) {
+    throw new AppError("حجم الملف غير صالح", 400);
+  }
+
+  const office = await OfficeModel.findById(officeId);
+  if (!office) {
+    throw new AppError("المكتب غير موجود", 404);
+  }
+
+  const maxStorage = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
+
+  if (typeof maxStorage !== "number" || maxStorage < 0) {
+    throw new AppError("Feature 'STORAGE_MAX' is not configured properly", 500);
+  }
+
+  const updatedOffice = await OfficeModel.findOneAndUpdate(
+    {
+      _id: officeId,
+      $expr: {
+        $lte: [
+          { $add: [{ $ifNull: ["$storageUsedBytes", 0] }, fileBytes] },
+          maxStorage
+        ]
+      }
+    },
+    {
+      $inc: { storageUsedBytes: fileBytes }
+    },
+    {
+      new: true
+    }
+  );
+
+  if (!updatedOffice) {
     throw new AppError("مساحة التخزين المتوفرة في خطتك الحالية غير كافية", 403);
   }
 
-  return office;
+  return updatedOffice;
 };
 
-
-export const incrementStorage = async (officeId: string | Types.ObjectId, bytes: number) => {
-  await OfficeModel.findByIdAndUpdate(officeId, {
-    $inc: { storageUsedBytes: bytes }
-  });
-};
-
-export const decrementStorage = async (officeId: string | Types.ObjectId, bytes: number) => {
+export const releaseStorage = async (
+  officeId: string | Types.ObjectId,
+  bytes: number
+) => {
   if (!bytes || bytes <= 0) return;
-  await OfficeModel.findByIdAndUpdate(officeId, {
-    $inc: { storageUsedBytes: -bytes }
-  });
+
+  const updatedOffice = await OfficeModel.findOneAndUpdate(
+    { _id: officeId },
+    [
+      {
+        $set: {
+          storageUsedBytes: {
+            $max: [
+              { $subtract: [{ $ifNull: ["$storageUsedBytes", 0] }, bytes] },
+              0
+            ]
+          }
+        }
+      }
+    ],
+    { new: true }
+  );
+
+  if (!updatedOffice) {
+    throw new AppError("المكتب غير موجود", 404);
+  }
+
+  return updatedOffice;
 };

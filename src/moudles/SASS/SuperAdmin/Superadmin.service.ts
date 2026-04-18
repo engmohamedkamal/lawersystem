@@ -7,6 +7,17 @@ import PaymentModel from "../../../DB/model/SaaSModels/Payment.model";
 import UserModel from "../../../DB/model/user.model";
 import { sendEmail } from "../../../utils/SendEmail";
 import { getIO } from "../../../utils/socket";
+import { parseStorageSize } from "../../../utils/sizeConverter";
+import { PLAN_FEATURES } from "../constants/planFeatures";
+import { syncOfficeStorage } from "../../../jobs/syncStorage.cron";
+import { buildCloudinaryBytesMap } from "../../../helpers/cloudinaryStorage.helper";
+import UserModel_SA from "../../../DB/model/user.model";
+import LegalCaseModel_SA from "../../../DB/model/LegalCase.model";
+import SessionModel_SA from "../../../DB/model/session.model";
+import TaskModel_SA from "../../../DB/model/tasks.model";
+import ClientModel_SA from "../../../DB/model/client.model";
+import SettingsModel_SA from "../../../DB/model/settings.model";
+import LawModel_SA from "../../../DB/model/law.model";
 
 
 const buildFeaturesFromPlan = (plan: any): Record<string, any> => {
@@ -25,6 +36,15 @@ class SuperAdminService {
         const existing = await PlanModel.findOne({ slug })
         if (existing) throw new AppError("plan slug already exists", 409)
 
+        // Convert storage size if present
+        if (features && Array.isArray(features)) {
+            features.forEach(f => {
+                if (f.key === PLAN_FEATURES.STORAGE_MAX) {
+                    f.defaultValue = parseStorageSize(f.defaultValue);
+                }
+            });
+        }
+
         const plan = await PlanModel.create({
             name, slug, description, monthlyPrice, yearlyPrice,
             features: features ?? [], isPopular, sortOrder,
@@ -42,6 +62,16 @@ class SuperAdminService {
         const { planId } = req.params
         const plan = await PlanModel.findById(planId)
         if (!plan) throw new AppError("plan not found", 404)
+
+        // Convert storage size if present in features
+        if (req.body.features && Array.isArray(req.body.features)) {
+            req.body.features.forEach((f: any) => {
+                if (f.key === PLAN_FEATURES.STORAGE_MAX) {
+                    f.defaultValue = parseStorageSize(f.defaultValue);
+                }
+            });
+        }
+
         Object.assign(plan, req.body)
         await plan.save()
         return res.status(200).json({ message: "Plan updated", plan })
@@ -78,6 +108,11 @@ class SuperAdminService {
         const { planId } = req.params
         const plan = await PlanModel.findById(planId)
         if (!plan) throw new AppError("plan not found", 404)
+
+        if (req.body.key === PLAN_FEATURES.STORAGE_MAX) {
+            req.body.defaultValue = parseStorageSize(req.body.defaultValue);
+        }
+
         plan.features.push(req.body)
         await plan.save()
         return res.status(200).json({ message: "Feature added", plan })
@@ -96,6 +131,11 @@ class SuperAdminService {
         const { planId, key } = req.params
         const plan = await PlanModel.findById(planId)
         if (!plan) throw new AppError("plan not found", 404)
+
+        if (key === PLAN_FEATURES.STORAGE_MAX && req.body.defaultValue !== undefined) {
+            req.body.defaultValue = parseStorageSize(req.body.defaultValue);
+        }
+
         plan.features = plan.features.map((f: any) => f.key === key ? { ...f, ...req.body } : f)
         await plan.save()
         return res.status(200).json({ message: "Feature updated", plan })
@@ -111,9 +151,11 @@ class SuperAdminService {
         let plansUpdated = 0
         let officesUpdated = 0
 
+        const finalDefaultValue = key === PLAN_FEATURES.STORAGE_MAX ? parseStorageSize(defaultValue) : defaultValue;
+
         for (const plan of plans) {
             if (!plan.features.some((f: any) => f.key === key)) {
-                plan.features.push({ key, label, valueType, defaultValue, visible })
+                plan.features.push({ key, label, valueType, defaultValue: finalDefaultValue, visible })
                 await plan.save()
                 plansUpdated++
             }
@@ -121,7 +163,7 @@ class SuperAdminService {
 
         for (const office of offices) {
             if ((office.features as any)[key] === undefined) {
-                (office.features as any)[key] = defaultValue
+                (office.features as any)[key] = finalDefaultValue
                 office.markModified("features")
                 await office.save()
                 officesUpdated++
@@ -157,16 +199,18 @@ class SuperAdminService {
     updateFeatureInAllPlans = async (req: Request, res: Response, next: NextFunction) => {
         const { key, label, valueType, defaultValue, unit, visible = true } = req.body
 
+        const finalDefaultValue = key === PLAN_FEATURES.STORAGE_MAX ? parseStorageSize(defaultValue) : defaultValue;
+
         const plans = await PlanModel.find()
         for (const plan of plans) {
-            plan.features = plan.features.map((f: any) => f.key === key ? { ...f, ...req.body } : f)
+            plan.features = plan.features.map((f: any) => f.key === key ? { ...f, ...req.body, defaultValue: finalDefaultValue } : f)
             await plan.save()
         }
 
         const offices = await OfficeModel.find()
         for (const office of offices) {
             if ((office.features as any)[key] !== undefined) {
-                (office.features as any)[key] = defaultValue
+                (office.features as any)[key] = finalDefaultValue
                 office.markModified("features")
                 await office.save()
             }
@@ -616,14 +660,18 @@ class SuperAdminService {
     updateOfficeFeatures = async (req: Request, res: Response, next: NextFunction) => {
         const { officeId } = req.params
         const { features } = req.body
- 
+
         const office = await OfficeModel.findById(officeId)
         if (!office) throw new AppError("office not found", 404)
- 
+
+        if (features && features[PLAN_FEATURES.STORAGE_MAX] !== undefined) {
+            features[PLAN_FEATURES.STORAGE_MAX] = parseStorageSize(features[PLAN_FEATURES.STORAGE_MAX]);
+        }
+
         Object.assign(office.features, features)
         office.markModified("features")
         await office.save()
- 
+
         return res.status(200).json({ message: "Features updated", features: office.features })
     }
 
@@ -712,8 +760,182 @@ class SuperAdminService {
         return res.status(200).json({ message: "success", plan: plan.name, data })
     }
 
+    // ── STORAGE MANAGEMENT ──────────────────────────────────────────────
 
+    /**
+     * Manually triggers a full Cloudinary-verified storage sync for all offices.
+     * POST /superadmin/triggerStorageSync
+     */
+    triggerStorageSync = async (req: Request, res: Response, next: NextFunction) => {
+        const startTime = Date.now();
+        await syncOfficeStorage();
+        const duration = Date.now() - startTime;
 
+        return res.status(200).json({
+            message: "Storage sync completed successfully (Cloudinary-verified)",
+            durationMs: duration,
+        });
+    }
+
+    /**
+     * Returns a detailed storage audit for a specific office.
+     * Shows per-file comparison: MongoDB bytes vs Cloudinary actual bytes.
+     * GET /superadmin/auditStorage/:officeId
+     */
+    auditOfficeStorage = async (req: Request, res: Response, next: NextFunction) => {
+        const { officeId } = req.params;
+
+        const office = await OfficeModel.findById(officeId);
+        if (!office) throw new AppError("office not found", 404);
+
+        // Build Cloudinary map
+        const cloudinaryMap = await buildCloudinaryBytesMap();
+
+        // Collect all files from MongoDB
+        const files: {
+            source: string;
+            publicId: string;
+            mongoBytes: number;
+            cloudinaryBytes: number | null;
+            status: "ok" | "size_mismatch" | "missing_in_cloudinary";
+        }[] = [];
+
+        // 1) Users – profile photos
+        const users = await UserModel_SA.find({ officeId }).select("ProfilePhoto UserName").lean();
+        for (const u of users) {
+            const photo = (u as any).ProfilePhoto;
+            const pid = photo?.publicId || photo?.PublicId;
+            if (pid) {
+                const cb = cloudinaryMap.get(pid);
+                files.push({
+                    source: `user-photo (${(u as any).UserName || u._id})`,
+                    publicId: pid,
+                    mongoBytes: photo?.sizeBytes || 0,
+                    cloudinaryBytes: cb ?? null,
+                    status: cb === undefined ? "missing_in_cloudinary" : cb === (photo?.sizeBytes || 0) ? "ok" : "size_mismatch",
+                });
+            }
+        }
+
+        // 2) Legal Cases – attachments
+        const cases = await LegalCaseModel_SA.find({ officeId }).select("attachments caseNumber").lean();
+        for (const c of cases) {
+            for (const att of ((c as any).attachments || [])) {
+                if (att.publicId) {
+                    const cb = cloudinaryMap.get(att.publicId);
+                    files.push({
+                        source: `case-attachment (${(c as any).caseNumber || c._id})`,
+                        publicId: att.publicId,
+                        mongoBytes: att.sizeBytes || 0,
+                        cloudinaryBytes: cb ?? null,
+                        status: cb === undefined ? "missing_in_cloudinary" : cb === (att.sizeBytes || 0) ? "ok" : "size_mismatch",
+                    });
+                }
+            }
+        }
+
+        // 3) Sessions – attachments
+        const sessions = await SessionModel_SA.find({ officeId }).select("attachments").lean();
+        for (const s of sessions) {
+            for (const att of ((s as any).attachments || [])) {
+                if (att.publicId) {
+                    const cb = cloudinaryMap.get(att.publicId);
+                    files.push({
+                        source: `session-attachment (${s._id})`,
+                        publicId: att.publicId,
+                        mongoBytes: att.sizeBytes || 0,
+                        cloudinaryBytes: cb ?? null,
+                        status: cb === undefined ? "missing_in_cloudinary" : cb === (att.sizeBytes || 0) ? "ok" : "size_mismatch",
+                    });
+                }
+            }
+        }
+
+        // 4) Tasks – attachments
+        const tasks = await TaskModel_SA.find({ officeId }).select("attachments title").lean();
+        for (const t of tasks) {
+            for (const att of ((t as any).attachments || [])) {
+                if (att.publicId) {
+                    const cb = cloudinaryMap.get(att.publicId);
+                    files.push({
+                        source: `task-attachment (${(t as any).title || t._id})`,
+                        publicId: att.publicId,
+                        mongoBytes: att.sizeBytes || 0,
+                        cloudinaryBytes: cb ?? null,
+                        status: cb === undefined ? "missing_in_cloudinary" : cb === (att.sizeBytes || 0) ? "ok" : "size_mismatch",
+                    });
+                }
+            }
+        }
+
+        // 5) Clients – documents
+        const clients = await ClientModel_SA.find({ officeId }).select("documents fullName").lean();
+        for (const cl of clients) {
+            for (const doc of ((cl as any).documents || [])) {
+                if (doc.publicId) {
+                    const cb = cloudinaryMap.get(doc.publicId);
+                    files.push({
+                        source: `client-document (${(cl as any).fullName || cl._id})`,
+                        publicId: doc.publicId,
+                        mongoBytes: doc.sizeBytes || 0,
+                        cloudinaryBytes: cb ?? null,
+                        status: cb === undefined ? "missing_in_cloudinary" : cb === (doc.sizeBytes || 0) ? "ok" : "size_mismatch",
+                    });
+                }
+            }
+        }
+
+        // 6) Settings – logo
+        const settings = await SettingsModel_SA.findOne({ officeId }).select("logoPublicId logoSizeBytes").lean();
+        if (settings?.logoPublicId) {
+            const cb = cloudinaryMap.get(settings.logoPublicId);
+            files.push({
+                source: "settings-logo",
+                publicId: settings.logoPublicId,
+                mongoBytes: (settings as any).logoSizeBytes || 0,
+                cloudinaryBytes: cb ?? null,
+                status: cb === undefined ? "missing_in_cloudinary" : cb === ((settings as any).logoSizeBytes || 0) ? "ok" : "size_mismatch",
+            });
+        }
+
+        // 7) Laws – PDF files
+        const laws = await LawModel_SA.find({ officeId }).select("filePublicId fileSizeBytes title").lean();
+        for (const law of laws) {
+            if ((law as any).filePublicId) {
+                const cb = cloudinaryMap.get((law as any).filePublicId);
+                files.push({
+                    source: `law-pdf (${(law as any).title || law._id})`,
+                    publicId: (law as any).filePublicId,
+                    mongoBytes: (law as any).fileSizeBytes || 0,
+                    cloudinaryBytes: cb ?? null,
+                    status: cb === undefined ? "missing_in_cloudinary" : cb === ((law as any).fileSizeBytes || 0) ? "ok" : "size_mismatch",
+                });
+            }
+        }
+
+        // Summary
+        const mongoTotal = files.reduce((s, f) => s + f.mongoBytes, 0);
+        const cloudinaryTotal = files.reduce((s, f) => s + (f.cloudinaryBytes ?? 0), 0);
+        const okCount = files.filter(f => f.status === "ok").length;
+        const mismatchCount = files.filter(f => f.status === "size_mismatch").length;
+        const missingCount = files.filter(f => f.status === "missing_in_cloudinary").length;
+
+        return res.status(200).json({
+            message: "success",
+            office: { _id: office._id, name: office.name, subdomain: office.subdomain },
+            summary: {
+                counterInDB: office.storageUsedBytes || 0,
+                mongoFilesTotal: mongoTotal,
+                cloudinaryFilesTotal: cloudinaryTotal,
+                drift: (office.storageUsedBytes || 0) - cloudinaryTotal,
+                totalFiles: files.length,
+                ok: okCount,
+                sizeMismatches: mismatchCount,
+                missingInCloudinary: missingCount,
+            },
+            files,
+        });
+    }
 
 }
 

@@ -8,7 +8,7 @@ import SessionModel from "../../DB/model/session.model";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -241,7 +241,8 @@ class sessionService {
         if (!session) throw new AppError("session not found", 404)
 
         const officeId = req.user?.officeId;
-        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
+        await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
         const ext     = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
@@ -258,27 +259,34 @@ class sessionService {
             resourceType,
             finalPublicId
         )
- 
-    
-        const updated = await SessionModel.findOneAndUpdate(
-            { _id: sessionId, officeId: req.user?.officeId },
-            {
-                $push: {
-                    attachments: {
-                        url:        secure_url,
-                        publicId:   public_id,
-                        name:       safeName,
-                        sizeBytes:  bytes,
-                        uploadedAt: new Date(),
-                    }
-                }
-            },
-            { new: true }
-        )
 
-        await incrementStorage(officeId as any, bytes);
+        let storageReserved = false;
+        try {
+          await reserveStorage(officeId as any, bytes);
+          storageReserved = true;
+
+          const updated = await SessionModel.findOneAndUpdate(
+              { _id: sessionId, officeId: req.user?.officeId },
+              {
+                  $push: {
+                      attachments: {
+                          url:        secure_url,
+                          publicId:   public_id,
+                          name:       safeName,
+                          sizeBytes:  bytes,
+                          uploadedAt: new Date(),
+                      }
+                  }
+              },
+              { new: true }
+          )
  
-        return res.status(200).json({ message: "Attachment uploaded successfully", session: updated })
+          return res.status(200).json({ message: "Attachment uploaded successfully", session: updated })
+        } catch (err) {
+          await cloudinary.uploader.destroy(public_id).catch(() => {});
+          if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+          throw err;
+        }
     }
  
     deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
@@ -294,7 +302,7 @@ class sessionService {
         if (!attachment) throw new AppError("attachment not found", 404)
  
         await cloudinary.uploader.destroy(attachment.publicId)
-        await decrementStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
+        await releaseStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
  
         const updated = await SessionModel.findOneAndUpdate(
             { _id: sessionId, officeId: req.user?.officeId },

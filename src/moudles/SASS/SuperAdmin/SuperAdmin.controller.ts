@@ -189,5 +189,20 @@ superAdminRouter.get("/getPayments",
     SS.getPayments
 )
 
+//STORAGE MANAGEMENT
+
+superAdminRouter.post("/triggerStorageSync",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    SS.triggerStorageSync
+)
+
+superAdminRouter.get("/auditStorage/:officeId",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.officeIdParamSchema),
+    SS.auditOfficeStorage
+)
+
 
 export default superAdminRouter;

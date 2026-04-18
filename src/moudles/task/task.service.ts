@@ -7,8 +7,9 @@ import { emitItemAssigned } from "../../utils/EmailEvent";
 import ClientModel from "../../DB/model/client.model";
 import NotificationModel from "../../DB/model/Notification.model";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
+import cloudinary from "../../utils/cloudInary";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 class taskService {
@@ -50,7 +51,7 @@ class taskService {
         })
 
         if (req.file) {
-            await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+            await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
             const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
             const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
@@ -69,15 +70,24 @@ class taskService {
                 finalPublicId
             )
 
-            task.attachments.push({
-                url: secure_url,
-                publicId: public_id,
-                name: safeName,
-                sizeBytes: bytes,
-            } as any)
+            let storageReserved = false;
+            try {
+              await reserveStorage(officeId as any, bytes);
+              storageReserved = true;
 
-            await task.save()
-            await incrementStorage(officeId as any, bytes);
+              task.attachments.push({
+                  url: secure_url,
+                  publicId: public_id,
+                  name: safeName,
+                  sizeBytes: bytes,
+              } as any)
+
+              await task.save()
+            } catch (err) {
+              await cloudinary.uploader.destroy(public_id).catch(() => {});
+              if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+              throw err;
+            }
         }
 
         const populated = await TaskModel.findById(task._id)

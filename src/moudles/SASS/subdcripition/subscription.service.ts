@@ -104,10 +104,19 @@ class SubscriptionService {
         let originalAmount = billingInterval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice
 
         // تطبيق عرض الخطة
+        const selectedDuration = billingInterval // "monthly" | "yearly"
+
         if (plan.offer?.isActive) {
-            const offerValid = !plan.offer.validUntil || plan.offer.validUntil >= new Date()
-            if (offerValid) {
-                originalAmount = Math.round(originalAmount * (1 - plan.offer.discountPercent / 100))
+            const offerValid =
+                !plan.offer.validUntil || new Date(plan.offer.validUntil) >= new Date()
+
+            const appliesToSelectedPlan =
+                plan.offer.applyTo === "both" || plan.offer.applyTo === selectedDuration
+
+            if (offerValid && appliesToSelectedPlan) {
+                originalAmount = Math.round(
+                    originalAmount * (1 - plan.offer.discountPercent / 100)
+                )
             }
         }
 

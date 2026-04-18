@@ -10,7 +10,8 @@ import SessionModel from "../../DB/model/session.model";
 import { sendNotification } from "../task/notification.service";
 import { emitItemAssigned } from "../../utils/EmailEvent";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
+import { cascadeHardDeleteCase, cascadeSoftDeleteCase } from "../../helpers/cascadeDelete.helper"
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -301,7 +302,8 @@ class LegalCaseService {
         if (!legalCase) throw new AppError("case not found", 404)
 
         const officeId = req.user?.officeId;
-        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
+        await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
         const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
@@ -319,25 +321,33 @@ class LegalCaseService {
             finalPublicId
         )
 
-        const updated = await LegalCaseModel.findOneAndUpdate(
-            { _id: id, officeId: req.user?.officeId },
-            {
-                $push: {
-                    attachments: {
-                        url:        secure_url,
-                        publicId:   public_id,
-                        name:       safeName,
-                        sizeBytes:  bytes,
-                        uploadedAt: new Date(),
-                    },
-                },
-            },
-            { new: true }
-        )
+        let storageReserved = false;
+        try {
+          await reserveStorage(officeId as any, bytes);
+          storageReserved = true;
 
-        await incrementStorage(officeId as any, bytes);
+          const updated = await LegalCaseModel.findOneAndUpdate(
+              { _id: id, officeId: req.user?.officeId },
+              {
+                  $push: {
+                      attachments: {
+                          url:        secure_url,
+                          publicId:   public_id,
+                          name:       safeName,
+                          sizeBytes:  bytes,
+                          uploadedAt: new Date(),
+                      },
+                  },
+              },
+              { new: true }
+          )
 
-        return res.status(200).json({ message: "Attachment uploaded successfully", case: updated })
+          return res.status(200).json({ message: "Attachment uploaded successfully", case: updated })
+        } catch (err) {
+          await cloudinary.uploader.destroy(public_id).catch(() => {});
+          if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+          throw err;
+        }
     }
 
     deleteAttachment = async (req: Request, res: Response, next: NextFunction) => {
@@ -351,7 +361,7 @@ class LegalCaseService {
         if (!attachment) throw new AppError("attachment not found", 404)
 
         await cloudinary.uploader.destroy(attachment.publicId)
-        await decrementStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
+        await releaseStorage(req.user?.officeId as any, attachment.sizeBytes || 0);
 
         const updated = await LegalCaseModel.findOneAndUpdate(
             { _id: id, officeId: req.user?.officeId },
@@ -375,8 +385,20 @@ class LegalCaseService {
             DeletedBy : req.user?.id
         })
 
-        return res.status(200).json({ message: "Case deleted successfully" })
+        await cascadeSoftDeleteCase(id as string, req.user?.officeId as any, req.user?.id as any)
 
+        return res.status(200).json({ message: "Case soft-deleted successfully" })
+    }
+
+    hardDeleteCase = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+
+        const LegalCase = await LegalCaseModel.findOne({ _id: id, officeId: req.user?.officeId })
+        if (!LegalCase) throw new AppError("case not found", 404)
+
+        await cascadeHardDeleteCase(id as string, req.user?.officeId as any, req.user?.id as any)
+
+        return res.status(200).json({ message: "Case permanently hard-deleted successfully along with all related resources and storage updated" })
     }
 }
 

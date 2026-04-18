@@ -84,6 +84,14 @@ clientRouter.delete(
     CS.deleteClient
 );
 
+clientRouter.delete(
+    "/hardDelete/:id",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(CV.clientParamsSchema),
+    CS.hardDeleteClient
+);
+
 clientRouter.patch(
     "/:id",
     authentication(TokenType.access),

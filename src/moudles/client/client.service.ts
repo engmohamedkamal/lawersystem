@@ -8,7 +8,8 @@ import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import cloudinary from "../../utils/cloudInary";
 import InvoiceModel from "../../DB/model/invoice.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
+import { cascadeHardDeleteClient, cascadeSoftDeleteClient } from "../../helpers/cascadeDelete.helper"
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -300,7 +301,8 @@ class ClientService {
         if (!client) throw new AppError("client not found", 404)
 
         const officeId = req.user?.officeId;
-        await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
+        await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
         const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
         const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
@@ -321,25 +323,33 @@ class ClientService {
           finalPublicId
         )
 
-        const updated = await ClientModel.findByIdAndUpdate(
-          id,
-          {
-            $push: {
-              documents: {
-                url: secure_url,
-                publicId: public_id,
-                name: safeName,
-                sizeBytes: bytes,
-                uploadedAt: new Date(),
+        let storageReserved = false;
+        try {
+          await reserveStorage(officeId as any, bytes);
+          storageReserved = true;
+
+          const updated = await ClientModel.findByIdAndUpdate(
+            id,
+            {
+              $push: {
+                documents: {
+                  url: secure_url,
+                  publicId: public_id,
+                  name: safeName,
+                  sizeBytes: bytes,
+                  uploadedAt: new Date(),
+                },
               },
             },
-          },
-          { returnDocument: "after" }
-        )
+            { returnDocument: "after" }
+          )
 
-        await incrementStorage(officeId as any, bytes);
-
-        return res.status(200).json({ message: "Document uploaded successfully", client: updated })
+          return res.status(200).json({ message: "Document uploaded successfully", client: updated })
+        } catch (err) {
+          await cloudinary.uploader.destroy(public_id).catch(() => {});
+          if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+          throw err;
+        }
     }
 
     deleteDocument = async (req: Request, res: Response, next: NextFunction) => {
@@ -353,7 +363,7 @@ class ClientService {
         if (!doc) throw new AppError("document not found", 404)
 
         await cloudinary.uploader.destroy(doc.publicId)
-        await decrementStorage(req.user?.officeId as any, doc.sizeBytes || 0);
+        await releaseStorage(req.user?.officeId as any, doc.sizeBytes || 0);
 
         const updated = await ClientModel.findOneAndUpdate(
             { _id: id, officeId: req.user?.officeId },
@@ -376,7 +386,20 @@ class ClientService {
             deletedBy: req.user?.id,
         })
 
-        return res.status(200).json({ message: "Client deleted successfully" })
+        await cascadeSoftDeleteClient(id as string, req.user?.officeId as any, req.user?.id as any)
+
+        return res.status(200).json({ message: "Client soft-deleted successfully" })
+    }
+
+    hardDeleteClient = async (req: Request, res: Response, next: NextFunction) => {
+        const { id } = req.params
+
+        const client = await ClientModel.findOne({ _id: id, officeId: req.user?.officeId })
+        if (!client) throw new AppError("client not found", 404)
+
+        await cascadeHardDeleteClient(id as string, req.user?.officeId as any, req.user?.id as any)
+
+        return res.status(200).json({ message: "Client permanently hard-deleted successfully along with all related resources and storage updated" })
     }
 
     unDeleteClient = async (req: Request, res: Response, next: NextFunction) => {

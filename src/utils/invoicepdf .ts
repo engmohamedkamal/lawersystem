@@ -27,8 +27,15 @@ const MARGIN     = 32;
 const CONTENT_W  = PAGE_W - MARGIN * 2;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
-const fmt = (val: number) =>
-    val?.toLocaleString("en-EG", { minimumFractionDigits: 2 }) ?? "0.00";
+const fmtAr = (val: number) => {
+    const num = val?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00";
+    // Reverse characters so PDFKit rtla feature flips them back to correct visual order when mixed with Arabic
+    return num.split("").reverse().join("");
+};
+
+const fmtNum = (val: number) => val?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00";
+
+const revStr = (str: string) => str.split("").reverse().join("");
 
 const fetchLogo = async (url: string): Promise<Buffer | null> => {
     try {
@@ -96,11 +103,11 @@ const drawHeader = (
 
     // Dates
     doc.font(FONT_REG).fontSize(9).fillColor(GOLD as unknown as string);
-    const issueDate = new Date(invoice.issueDate).toLocaleDateString("ar-EG");
-    textL(doc, `تاريخ الإصدار: ${issueDate}`, MARGIN, startY + 40, { width: 200 });
+    const issueDate = new Date(invoice.issueDate).toLocaleDateString("en-GB");
+    textL(doc, `تاريخ الإصدار: ${revStr(issueDate)}`, MARGIN, startY + 40, { width: 200 });
     if (invoice.dueDate) {
-        const dueDate = new Date(invoice.dueDate).toLocaleDateString("ar-EG");
-        textL(doc, `تاريخ الاستحقاق: ${dueDate}`, MARGIN, startY + 54, { width: 200 });
+        const dueDate = new Date(invoice.dueDate).toLocaleDateString("en-GB");
+        textL(doc, `تاريخ الاستحقاق: ${revStr(dueDate)}`, MARGIN, startY + 54, { width: 200 });
     }
 
     return startY + headerH + 4;
@@ -177,7 +184,7 @@ const drawTable = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
     rect(doc, MARGIN, tableY, CONTENT_W, headerH, DARK);
     doc.font(FONT_BOLD).fontSize(10).fillColor(WHITE as unknown as string);
     textR(doc, "البيان", MARGIN + CONTENT_W - colDescW + 8, tableY + 8, { width: colDescW - 16 });
-    textL(doc, "المبلغ (ج.م)", MARGIN + 8, tableY + 8, { width: colAmtW - 16 });
+    textL(doc, "المبلغ )ج.م(", MARGIN + 8, tableY + 8, { width: colAmtW - 16 });
 
     let y = tableY + headerH;
     const items = invoice.items ?? [];
@@ -202,7 +209,7 @@ const drawTable = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
 
         // Amount
         doc.font(FONT_BOLD).fontSize(11).fillColor(DARK as unknown as string);
-        textL(doc, fmt(items[i].amount), MARGIN + 8, y + 7, { width: colAmtW - 16 });
+        textL(doc, fmtNum(items[i].amount), MARGIN + 8, y + 7, { width: colAmtW - 16 });
 
         y += rowH;
     }
@@ -260,9 +267,9 @@ const drawBoxes = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
         row1Y += 18;
     };
 
-    drawBoxRow("المجموع الفرعي:", `${fmt(invoice.subtotal)} ج.م`);
-    if (invoice.discount > 0) drawBoxRow(`الخصم (${invoice.discount}%):`, `- ${fmt(discountAmt)} ج.م`, RED);
-    if (invoice.tax > 0) drawBoxRow(`الضريبة (${invoice.tax}%):`, `+ ${fmt(taxAmt)} ج.م`);
+    drawBoxRow("المجموع الفرعي:", `${fmtAr(invoice.subtotal)} ج.م`);
+    if (invoice.discount > 0) drawBoxRow(`الخصم (${invoice.discount}%):`, `- ${fmtAr(discountAmt)} ج.م`, RED);
+    if (invoice.tax > 0) drawBoxRow(`الضريبة (${invoice.tax}%):`, `+ ${fmtAr(taxAmt)} ج.م`);
 
     // Divider
     doc.save().moveTo(box1X + 10, row1Y).lineTo(box1X + boxW - 10, row1Y)
@@ -273,21 +280,21 @@ const drawBoxes = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
     roundedRect(doc, box1X + 8, row1Y, boxW - 16, 26, 4, GOLD);
     doc.font(FONT_BOLD).fontSize(12).fillColor(DARK as unknown as string);
     textR(doc, "الإجمالي:", box1X + 16, row1Y + 5, { width: (boxW - 32) / 2 });
-    textL(doc, `${fmt(invoice.total)} ج.م`, box1X + 16, row1Y + 5, { width: (boxW - 32) / 2 });
+    textL(doc, `${fmtAr(invoice.total)} ج.م`, box1X + 16, row1Y + 5, { width: (boxW - 32) / 2 });
     row1Y += 34;
 
     // Paid
     doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
     textR(doc, "المدفوع:", box1X + 10, row1Y, { width: boxW - 20 });
     doc.font(FONT_BOLD).fontSize(10).fillColor((invoice.paidAmount > 0 ? GREEN : RED) as unknown as string);
-    textL(doc, `${fmt(invoice.paidAmount ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
+    textL(doc, `${fmtAr(invoice.paidAmount ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
     row1Y += 18;
 
     // Remaining
     doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
     textR(doc, "المتبقي:", box1X + 10, row1Y, { width: boxW - 20 });
     doc.font(FONT_BOLD).fontSize(10).fillColor(((invoice.remaining ?? 0) > 0 ? RED : GREEN) as unknown as string);
-    textL(doc, `${fmt(invoice.remaining ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
+    textL(doc, `${fmtAr(invoice.remaining ?? 0)} ج.م`, box1X + 10, row1Y, { width: boxW - 20 });
     row1Y += 18;
 
     // Payment method
@@ -320,14 +327,14 @@ const drawBoxes = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
         doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
         textR(doc, "إجمالي الأتعاب:", box2X + 10, row2Y, { width: boxW - 20 });
         doc.font(FONT_BOLD).fontSize(10).fillColor((caseTotal === 0 ? RED : DARK) as unknown as string);
-        textL(doc, `${fmt(caseTotal)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
+        textL(doc, `${fmtAr(caseTotal)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
         row2Y += 18;
 
         // Paid
         doc.font(FONT_REG).fontSize(10).fillColor(TEXT_GRAY as unknown as string);
         textR(doc, "إجمالي المدفوع:", box2X + 10, row2Y, { width: boxW - 20 });
         doc.font(FONT_BOLD).fontSize(10).fillColor((casePaid > 0 ? GREEN : RED) as unknown as string);
-        textL(doc, `${fmt(casePaid)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
+        textL(doc, `${fmtAr(casePaid)} ج.م`, box2X + 10, row2Y, { width: boxW - 20 });
         row2Y += 18;
 
         // Divider
@@ -343,7 +350,7 @@ const drawBoxes = (doc: PDFKit.PDFDocument, invoice: any, startY: number): numbe
         textR(doc, "المتبقي:", box2X + 16, row2Y + 7, { width: (boxW - 32) / 2 });
 
         doc.font(FONT_BOLD).fontSize(12).fillColor((caseRemaining > 0 ? RED : GREEN) as unknown as string);
-        const remText = caseRemaining === 0 ? "تم السداد بالكامل ✓" : `${fmt(caseRemaining)} ج.م`;
+        const remText = caseRemaining === 0 ? "تم السداد بالكامل ✓" : `${fmtAr(caseRemaining)} ج.م`;
         textL(doc, remText, box2X + 16, row2Y + 7, { width: (boxW - 32) / 2 });
 
         row2Y += 38;
@@ -389,7 +396,8 @@ const drawFooter = (doc: PDFKit.PDFDocument, invoice: any, settings: any) => {
     doc.text(line1, MARGIN, footerY + 10, { width: CONTENT_W, align: "center", features: ["rtla"] });
 
     doc.font(FONT_REG).fontSize(8).fillColor(GOLD as unknown as string);
-    const line2 = `فاتورة ${invoice.invoiceNumber}  |  ${new Date().toLocaleDateString("ar-EG")}`;
+    const dateStr = new Date().toLocaleDateString("en-GB");
+    const line2 = `فاتورة ${invoice.invoiceNumber}  |  ${revStr(dateStr)}`;
     doc.text(line2, MARGIN, footerY + 24, { width: CONTENT_W, align: "center", features: ["rtla"] });
 };
 
@@ -427,7 +435,7 @@ export const generateInvoicePDF = async (invoice: any, settings: any, warning?: 
             let y = drawHeader(doc, invoice, settings, logo, 0);
 
             if (isOverpaid) {
-                y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)`, y);
+                y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmtAr(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmtAr(caseTotal)} ج.م)`, y);
             }
 
             y = drawCards(doc, invoice, y);
@@ -478,7 +486,7 @@ export const generateAllInvoicesPDF = async (invoices: any[], settings: any): Pr
                 let y = drawHeader(doc, invoice, settings, logo, 0);
 
                 if (isOverpaid) {
-                    y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmt(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmt(caseTotal)} ج.م)`, y);
+                    y = drawWarning(doc, `تحذير: إجمالي المدفوع (${fmtAr(casePaid)} ج.م) تجاوز إجمالي الأتعاب (${fmtAr(caseTotal)} ج.م)`, y);
                 }
 
                 y = drawCards(doc, invoice, y);

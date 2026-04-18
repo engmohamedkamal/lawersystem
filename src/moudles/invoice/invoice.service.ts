@@ -75,7 +75,7 @@ const parseOptionalDate = (value?: string, fallback?: Date): Date | undefined =>
     return d
 }
 
-const syncCaseFees = async (legalCaseId: string) => {
+export const syncCaseFees = async (legalCaseId: string) => {
     const allInvoices = await InvoiceModel.find({
         legalCase:  legalCaseId,
         isDeleted:  false,
@@ -111,7 +111,7 @@ const addExtraPayment = async (
     }, { new: true })
 }
 
-const removeExtraPayment = async (
+export const removeExtraPayment = async (
     legalCaseId: string | null,
     clientId:    string,
     invoiceId:   Types.ObjectId,   

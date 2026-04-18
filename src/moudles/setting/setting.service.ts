@@ -5,7 +5,7 @@ import { UpdateWorkHoursType, UpsertSettingsType } from "./setting.validation";
 import cloudinary from "../../utils/cloudInary";
 import { uploadBuffer } from "../../utils/cloudinaryHelpers";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 
 
 class SettingsService {
@@ -99,27 +99,36 @@ class SettingsService {
          if (!req.file) throw new AppError("No image uploaded", 400)
 
          const officeId = req.user?.officeId;
-         await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
+         await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
          const existing = await SettingsModel.findOne({ officeId })
          const oldSizeBytes = existing?.logoSizeBytes || 0;
 
          const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer, "settings/logo")
 
-         const settings = await SettingsModel.findOneAndUpdate(
-           { officeId },
-           { $set: { logo: secure_url, logoPublicId: public_id, logoSizeBytes: bytes } },
-           { new: true, upsert: true }
-         )
+         let storageReserved = false;
+         try {
+           await reserveStorage(officeId as any, bytes);
+           storageReserved = true;
 
-         await incrementStorage(officeId as any, bytes);
+           const settings = await SettingsModel.findOneAndUpdate(
+             { officeId },
+             { $set: { logo: secure_url, logoPublicId: public_id, logoSizeBytes: bytes } },
+             { new: true, upsert: true }
+           )
 
-         if (existing?.logoPublicId) {
-           await cloudinary.uploader.destroy(existing.logoPublicId)
-           await decrementStorage(officeId as any, oldSizeBytes);
+           if (existing?.logoPublicId) {
+             await cloudinary.uploader.destroy(existing.logoPublicId).catch(() => {});
+             await releaseStorage(officeId as any, oldSizeBytes);
+           }
+
+           return res.status(200).json({ message: "Logo updated successfully", settings })
+         } catch (err) {
+           await cloudinary.uploader.destroy(public_id).catch(() => {});
+           if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+           throw err;
          }
-
-         return res.status(200).json({ message: "Logo updated successfully", settings })
     }
 
     deleteLogo = async (req: Request, res: Response, next: NextFunction) => {
@@ -130,7 +139,7 @@ class SettingsService {
 
          if (settings.logoPublicId) {
            await cloudinary.uploader.destroy(settings.logoPublicId)
-           await decrementStorage(officeId as any, settings.logoSizeBytes || 0);
+           await releaseStorage(officeId as any, settings.logoSizeBytes || 0);
          }
 
          settings.logo        = undefined

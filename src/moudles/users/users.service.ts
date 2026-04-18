@@ -9,7 +9,7 @@ import LegalCaseModel from "../../DB/model/LegalCase.model";
 import SessionModel from "../../DB/model/session.model";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 import { assertFeatureLimitNotReached } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 
 class usersService {
@@ -41,10 +41,18 @@ class usersService {
          let profilePhoto: { url: string; publicId: string; sizeBytes?: number } | undefined;
 
          if (req.file) {
-           await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+           await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
            const result = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
-           profilePhoto = { url: result.secure_url, publicId: result.public_id, sizeBytes: result.bytes }
-           await incrementStorage(officeId as any, result.bytes);
+           let storageReserved = false;
+           try {
+             await reserveStorage(officeId as any, result.bytes);
+             storageReserved = true;
+             profilePhoto = { url: result.secure_url, publicId: result.public_id, sizeBytes: result.bytes }
+           } catch (err) {
+             await cloudinary.uploader.destroy(result.public_id).catch(() => {});
+             if (storageReserved) await releaseStorage(officeId as any, result.bytes).catch(() => {});
+             throw err;
+           }
          }
 
          const user = new UserModel({
@@ -274,30 +282,38 @@ class usersService {
       if (!user) throw new AppError("User not found", 404);
 
       const officeId = req.user?.officeId;
-      await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
 
       const oldPublicId = (user as any)?.ProfilePhoto?.PublicId || (user as any)?.ProfilePhoto?.publicId;
       const oldSizeBytes = (user as any)?.ProfilePhoto?.sizeBytes || 0;
 
+      await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
       const { secure_url, public_id, bytes } = await uploadBuffer(req.file.buffer, "lawyerSystem/profile");
 
-      const updatedUser = await UserModel.findByIdAndUpdate(
-        req.user?._id,
-        { $set: { ProfilePhoto: { url: secure_url, PublicId: public_id, sizeBytes: bytes } } },
-        { new: true }
-      );
+      let storageReserved = false;
+      try {
+        await reserveStorage(officeId as any, bytes);
+        storageReserved = true;
 
-      await incrementStorage(officeId as any, bytes);
+        const updatedUser = await UserModel.findByIdAndUpdate(
+          req.user?._id,
+          { $set: { ProfilePhoto: { url: secure_url, PublicId: public_id, sizeBytes: bytes } } },
+          { new: true }
+        );
 
-      if (oldPublicId) {
-        await cloudinary.uploader.destroy(oldPublicId);
-        await decrementStorage(officeId as any, oldSizeBytes);
+        if (oldPublicId) {
+          await cloudinary.uploader.destroy(oldPublicId).catch(() => {});
+          await releaseStorage(officeId as any, oldSizeBytes);
+        }
+
+        return res.status(200).json({
+          message: "Profile photo updated",
+          user: updatedUser,
+        });
+      } catch (err) {
+        await cloudinary.uploader.destroy(public_id).catch(() => {});
+        if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+        throw err;
       }
-
-      return res.status(200).json({
-        message: "Profile photo updated",
-        user: updatedUser,
-      });
         };
 
 

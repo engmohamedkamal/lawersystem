@@ -100,6 +100,14 @@ LegalCaseRouter.delete(
     CS.deleteCase
 );
 
+LegalCaseRouter.delete(
+    "/hardDelete/:id",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN),
+    validation(CV.caseParamsSchema),
+    CS.hardDeleteCase
+);
+
 
 LegalCaseRouter.use("/:id/invoices", invoiceRouter);
 

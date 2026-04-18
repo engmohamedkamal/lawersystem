@@ -8,7 +8,7 @@ import UserLawReminderModel from "../../DB/model/userLawReminder.model";
 import {getLawArticlesParamsType,getReminderParamsType,deleteLawParamsType,uploadLawBodyType,} from "./lawReminder.validation";
 import pdf from "pdf-parse";
 import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
-import { checkStorageLimit, incrementStorage, decrementStorage } from "../../helpers/storage.helper";
+import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
 
@@ -66,7 +66,8 @@ class lawReminderService {
     }
 
     const officeId = req.user?.officeId;
-    await checkStorageLimit(officeId as any, req.file.size || req.file.buffer.length);
+
+    await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
 
     const parsed = await pdf(req.file.buffer);
     const extractedArticles = extractArticles(parsed.text);
@@ -89,43 +90,45 @@ class lawReminderService {
 
     const uploadResult = await uploadBuffer(req.file.buffer, "lawyerSystem/laws");
 
-    const law = await LawModel.create({
-      title,
-      category,
-      fileUrl: uploadResult.secure_url,
-      filePublicId: uploadResult.public_id,
-      fileSizeBytes: uploadResult.bytes,
-      createdBy: req.user?._id,
-      officeId,
-    });
-
-    await incrementStorage(officeId as any, uploadResult.bytes);
-
+    let storageReserved = false;
     try {
-      await LawArticleModel.insertMany(
-        extractedArticles.map((article) => ({
-          lawId: law._id,
-          articleNumber: article.articleNumber,
-          title: article.title,
-          content: article.content,
-        }))
-      );
-    } catch (err) {
-      await LawModel.findByIdAndDelete(law._id);
-      if (uploadResult.public_id) {
-        await cloudinary.uploader.destroy(uploadResult.public_id, {
-          resource_type: "raw",
-        });
-        await decrementStorage(officeId as any, uploadResult.bytes);
-      }
-      throw new AppError("Failed to save articles. Law upload rolled back.", 500);
-    }
+      await reserveStorage(officeId as any, uploadResult.bytes);
+      storageReserved = true;
 
-    return res.status(201).json({
-      message: "done, law uploaded successfully",
-      law,
-      articlesCount: extractedArticles.length,
-    });
+      const law = await LawModel.create({
+        title,
+        category,
+        fileUrl: uploadResult.secure_url,
+        filePublicId: uploadResult.public_id,
+        fileSizeBytes: uploadResult.bytes,
+        createdBy: req.user?._id,
+        officeId,
+      });
+
+      try {
+        await LawArticleModel.insertMany(
+          extractedArticles.map((article) => ({
+            lawId: law._id,
+            articleNumber: article.articleNumber,
+            title: article.title,
+            content: article.content,
+          }))
+        );
+      } catch (err) {
+        await LawModel.findByIdAndDelete(law._id);
+        throw err;
+      }
+
+      return res.status(201).json({
+        message: "done, law uploaded successfully",
+        law,
+        articlesCount: extractedArticles.length,
+      });
+    } catch (err) {
+      await cloudinary.uploader.destroy(uploadResult.public_id, { resource_type: "raw" }).catch(() => {});
+      if (storageReserved) await releaseStorage(officeId as any, uploadResult.bytes).catch(() => {});
+      throw err;
+    }
   };
 
   getAllLaws = async (req: Request, res: Response) => {
@@ -237,7 +240,7 @@ class lawReminderService {
       await cloudinary.uploader.destroy(law.filePublicId, {
         resource_type: "raw",
       });
-      await decrementStorage(req.user?.officeId as any, law.fileSizeBytes || 0);
+      await releaseStorage(req.user?.officeId as any, law.fileSizeBytes || 0);
     }
 
     await Promise.all([
