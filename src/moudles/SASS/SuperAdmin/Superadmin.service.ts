@@ -649,7 +649,21 @@ class SuperAdminService {
             office.subscription.status = status
             office.isActive = status === "active"
         }
-        if (endDate)         office.subscription.endDate         = new Date(endDate)
+        if (endDate) {
+            office.subscription.endDate = new Date(endDate)
+        } else if (status === "active" && office.subscription.status !== "active") {
+            // تفعيل يدوي بدون تمرير endDate: نحسب المدة أوتوماتيك
+            const interval = billingInterval || office.subscription.billingInterval
+            const now = new Date()
+            if (interval === "yearly") {
+                now.setFullYear(now.getFullYear() + 1)
+            } else {
+                now.setMonth(now.getMonth() + 1)
+            }
+            office.subscription.endDate = now
+            office.subscription.lastPaymentAt = new Date()
+        }
+
         if (billingInterval) office.subscription.billingInterval = billingInterval
  
         await office.save()
