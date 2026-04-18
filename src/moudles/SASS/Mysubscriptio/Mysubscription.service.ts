@@ -5,6 +5,7 @@ import { createPaymobPaymentLink, getAvailablePaymentMethods, PaymentMethod } fr
 import PlanModel from "../../../DB/model/SaaSModels/Plan.model"
 import CouponModel from "../../../DB/model/SaaSModels/Coupon.model"
 import PaymentModel from "../../../DB/model/SaaSModels/Payment.model"
+import { formatStorageBytes } from "../../../utils/sizeConverter"
 
 class MySubscriptionService {
     constructor() { }
@@ -47,7 +48,13 @@ class MySubscriptionService {
                 name: plan.name,
                 monthlyPrice: plan.monthlyPrice,
                 yearlyPrice: plan.yearlyPrice,
-                features: plan.features,
+                features: plan.features?.map((f: any) => {
+                    const feature = { ...f };
+                    if (feature.key === "storage.max" && typeof feature.defaultValue === "number") {
+                        feature.defaultValue = formatStorageBytes(feature.defaultValue);
+                    }
+                    return feature;
+                }),
                 offer: plan.offer,
             } : null,
         })
@@ -65,10 +72,21 @@ class MySubscriptionService {
  
         const plans = await PlanModel.find({ isActive: true }).sort({ sortOrder: 1 })
  
-        const result = plans.map(plan => ({
-            ...plan.toObject(),
-            isCurrent: plan._id.toString() === office.subscription.planId?.toString(),
-        }))
+        const result = plans.map(plan => {
+            const p = plan.toObject();
+            if (p.features) {
+                p.features = p.features.map((f: any) => {
+                    if (f.key === "storage.max" && typeof f.defaultValue === "number") {
+                        f.defaultValue = formatStorageBytes(f.defaultValue);
+                    }
+                    return f;
+                });
+            }
+            return {
+                ...p,
+                isCurrent: plan._id.toString() === office.subscription.planId?.toString(),
+            };
+        })
  
         return res.status(200).json({ message: "success", plans: result })
     }

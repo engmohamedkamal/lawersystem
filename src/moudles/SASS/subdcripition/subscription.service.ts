@@ -9,6 +9,7 @@ import OfficeModel from "../../../DB/model/SaaSModels/Office.model"
 import PaymentModel from "../../../DB/model/SaaSModels/Payment.model"
 import { createPaymobPaymentLink, PaymentMethod, verifyPaymobHmac } from "../payment/Paymob.service"
 import SettingsModel from "../../../DB/model/settings.model"
+import { formatStorageBytes } from "../../../utils/sizeConverter"
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const buildFeaturesFromPlan = (plan: any): Record<string, any> => {
@@ -59,16 +60,35 @@ class SubscriptionService {
     constructor() { }
 
     // ── الخطط للصفحة العامة (بدون auth) ──────────────────────────────────────
+
     getPublicPlans = async (req: Request, res: Response, next: NextFunction) => {
         const plans = await PlanModel.find({ isActive: true })
             .sort({ sortOrder: 1 })
             .select("-__v")
             .lean()
 
-        return res.status(200).json({ message: "success", plans })
+        const formattedPlans = plans.map((plan: any) => {
+            if (plan.features) {
+                plan.features = plan.features
+                    .filter((f: any) => {
+                        if (f.visible === false) return false;
+                        if (f.valueType === "boolean" && f.defaultValue === false) return false;
+                        return true;
+                    })
+                    .map((f: any) => {
+                        if (f.key === "storage.max" && typeof f.defaultValue === "number") {
+                            f.defaultValue = formatStorageBytes(f.defaultValue);
+                        }
+                        return f;
+                    });
+            }
+            return plan;
+        });
+
+        return res.status(200).json({ message: "success", plans: formattedPlans })
     }
 
-    // ── تسجيل مكتب جديد ──────────────────────────────────────────────────────
+    //  تسجيل مكتب جديد 
     // NOTE: بيانات المكتب (الاسم، الشعار، العنوان) بتتحط من Settings بعد الدخول
     // هنا بس بنعمل subdomain + admin user + رابط دفع
     registerOffice = async (req: Request, res: Response, next: NextFunction) => {
@@ -223,7 +243,7 @@ class SubscriptionService {
         })
     }
 
-    // ── Webhook باي موب ────────────────────────────────────────────────────────
+    //Webhook باي موب 
     paymobWebhook = async (req: Request, res: Response, next: NextFunction) => {
         
         const receivedHmac = String(req.query.hmac ?? "")
@@ -297,7 +317,7 @@ class SubscriptionService {
         return res.status(200).json({ message: "webhook processed" })
     }
 
-    // ── التحقق من كوبون ───────────────────────────────────────────────────────
+    // التحقق من كوبون 
    applyCoupon = async (req: Request, res: Response, next: NextFunction) => {
         const { code, planId, billingInterval = "monthly" } = req.body
 
