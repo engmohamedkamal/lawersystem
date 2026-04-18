@@ -645,13 +645,15 @@ class SuperAdminService {
             office.features = buildFeaturesFromPlan(plan)
         }
  
+        const wasActive = office.isActive
+
         if (status) {
             office.subscription.status = status
             office.isActive = status === "active"
         }
         if (endDate) {
             office.subscription.endDate = new Date(endDate)
-        } else if (status === "active" && office.subscription.status !== "active") {
+        } else if (status === "active" && !wasActive) {
             // تفعيل يدوي بدون تمرير endDate: نحسب المدة أوتوماتيك
             const interval = billingInterval || office.subscription.billingInterval
             const now = new Date()
@@ -660,6 +662,7 @@ class SuperAdminService {
             } else {
                 now.setMonth(now.getMonth() + 1)
             }
+            office.subscription.startDate = new Date()
             office.subscription.endDate = now
             office.subscription.lastPaymentAt = new Date()
         }
