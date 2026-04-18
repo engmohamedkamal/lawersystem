@@ -73,8 +73,8 @@ const bootStrap = ()=>{
     });
 
     app.use((req: Request, res: Response, next: NextFunction) => {
-      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook"];
-
+      const excludedPaths = ["/auth/signin", "/auth/signup", "/csrf-token" , "/super-admin/dashboard" , "/subscription/webhook" , "/subscription/registerOffice"];
+      
       if (excludedPaths.includes(req.path)) {
         return next();
       }
