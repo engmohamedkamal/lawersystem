@@ -654,17 +654,62 @@ class SuperAdminService {
         if (endDate) {
             office.subscription.endDate = new Date(endDate)
         } else if (status === "active" && !wasActive) {
-            // تفعيل يدوي بدون تمرير endDate: نحسب المدة أوتوماتيك
             const interval = billingInterval || office.subscription.billingInterval
             const now = new Date()
-            if (interval === "yearly") {
-                now.setFullYear(now.getFullYear() + 1)
-            } else {
-                now.setMonth(now.getMonth() + 1)
+            
+            const planId = office.subscription.planId
+            const plan = await PlanModel.findById(planId)
+            
+            if (plan) {
+                if (interval === "yearly") {
+                    now.setFullYear(now.getFullYear() + 1)
+                } else {
+                    now.setMonth(now.getMonth() + 1)
+                }
+                
+                const amount = interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice
+                
+                const existingPayment = await PaymentModel.findOne({ 
+                    office: office._id, 
+                    status: "pending" 
+                }).sort({ createdAt: -1 })
+
+                if (existingPayment) {
+                    existingPayment.status = "success"
+                    existingPayment.paidAt = new Date()
+                    existingPayment.amount = amount       
+                    existingPayment.plan = plan._id
+                    existingPayment.billingInterval = interval as any
+                    existingPayment.planSnapshot = {
+                        name: plan.name,
+                        monthlyPrice: plan.monthlyPrice,
+                        yearlyPrice: plan.yearlyPrice,
+                        features: plan.features,
+                    }
+                    await existingPayment.save()
+                } else {
+                    await PaymentModel.create({
+                        office: office._id,
+                        plan: plan._id,
+                        billingInterval: interval,
+                        amount: amount,
+                        originalAmount: amount,
+                        status: "success",
+                        paidAt: new Date(),
+                        planSnapshot: {
+                            name: plan.name,
+                            monthlyPrice: plan.monthlyPrice,
+                            yearlyPrice: plan.yearlyPrice,
+                            features: plan.features,
+                        },
+                    })
+                }
+
+                office.subscription.startDate = new Date()
+                office.subscription.endDate = now
+                office.subscription.lastPaymentAt = new Date()
+                office.subscription.lastPaymentAmount = amount
             }
-            office.subscription.startDate = new Date()
-            office.subscription.endDate = now
-            office.subscription.lastPaymentAt = new Date()
         }
 
         if (billingInterval) office.subscription.billingInterval = billingInterval
