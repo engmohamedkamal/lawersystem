@@ -127,7 +127,13 @@ const bootStrap = ()=>{
     })
 
     app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-        res.status(err.statusCode || 500).json({
+        let statusCode = err.statusCode || 500;
+        
+        if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
+            statusCode = 401;
+        }
+
+        res.status(statusCode).json({
             status: "error",
             message: err.message,
             ...(err.details && { details: err.details })
