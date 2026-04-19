@@ -204,6 +204,12 @@ superAdminRouter.get("/dashboard",
     SS.dashboard
 )
 
+superAdminRouter.get("/getTopPlans",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    SS.getTopPlans
+)
+
 superAdminRouter.get("/getPayments",
     authentication(TokenType.access),
     isSuperAdmin,

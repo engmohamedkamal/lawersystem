@@ -492,7 +492,6 @@ class SuperAdminService {
         totalRevenue,
         revenueThisMonth,
         recentOffices,
-        recentPayments,
     ] = await Promise.all([
         OfficeModel.countDocuments(),
         OfficeModel.countDocuments({ "subscription.status": "active" }),
@@ -556,19 +555,7 @@ class SuperAdminService {
         joinedAt: o.createdAt
     }));
 
-    const formattedRecentPayments = recentPayments.map((p: any) => ({
-        id: p._id,
-        officeName: p.office?.name || "مكتب محذوف",
-        subdomain: p.office?.subdomain || "",
-        planName: p.plan?.name || p.planSnapshot?.name || "غير معروف",
-        amountPaid: p.amount,
-        originalAmount: p.originalAmount,
-        interval: p.billingInterval === "yearly" ? "سنوي" : "شهري",
-        method: p.paymentMethod || "رصيد",
-        paymentDate: p.paidAt || p.createdAt,
-        officeJoinedAt: p.office?.createdAt
-    }));
-
+    
     return res.status(200).json({
         message: "success",
         stats: {
@@ -582,9 +569,83 @@ class SuperAdminService {
         },
         expiringSoon: formattedExpiringSoon,
         recentOffices: formattedRecentOffices,
-        recentPayments: formattedRecentPayments,
     })
 
+    }
+
+    getTopPlans = async (req: Request, res: Response, next: NextFunction) => {
+        const planStats = await OfficeModel.aggregate([
+            { $match: { "subscription.planId": { $exists: true, $ne: null } } },
+            {
+                $group: {
+                    _id: "$subscription.planId",
+                    count: { $sum: 1 },
+                    totalRevenue: { $sum: "$subscription.lastPaymentAmount" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "plans",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "plan"
+                }
+            },
+            { $unwind: "$plan" },
+            { $sort: { count: -1 } }
+        ])
+
+        const totalSubscriptions = planStats.reduce((sum: number, p: any) => sum + p.count, 0)
+        const maxCount = planStats[0]?.count || 1
+
+        const plans = planStats.map((p: any, index: number) => {
+            const percentage = totalSubscriptions > 0
+                ? Math.round((p.count / totalSubscriptions) * 100)
+                : 0
+            const avgRevenue = p.count > 0
+                ? Math.round((p.totalRevenue || 0) / p.count)
+                : 0
+
+            return {
+                id: p._id,
+                name: p.plan.name,
+                slug: p.plan.slug,
+                subscriptions: p.count,
+                percentage,
+                barWidth: Math.round((p.count / maxCount) * 100),
+                totalRevenue: p.totalRevenue || 0,
+                avgRevenuePerUser: avgRevenue,
+                badge: index === 0 ? "الأكثر طلباً" : null
+            }
+        })
+
+        const topPlan = plans[0]
+        let insight = ""
+        if (topPlan && plans.length > 1) {
+            const secondPlan = plans[1]
+            if (!secondPlan) return
+            const diff = topPlan.subscriptions - secondPlan.subscriptions
+            const diffPercent = secondPlan.subscriptions > 0
+                ? Math.round((diff / secondPlan.subscriptions) * 100)
+                : 0
+            if (diffPercent > 0) {
+                insight = `تتفوق ${topPlan.name} على ${secondPlan.name} في عدد الاشتراكات بنسبة ${diffPercent}%`
+           } else {
+                insight = `${topPlan.name} هي الباقة الأكثر طلباً`
+           }
+        } else if (topPlan) {
+               insight = `${topPlan.name} هي الباقة الأكثر طلباً`
+        }
+        
+
+        return res.status(200).json({
+            message: "success",
+            title: "أكثر الباقات مبيعاً",
+            totalSubscriptions,
+            topPlanPercentage: topPlan?.percentage || 0,
+            plans,
+            insight
+        })
     }
 
     getPayments = async (req: Request, res: Response, next: NextFunction) => {
