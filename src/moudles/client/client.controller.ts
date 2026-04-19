@@ -7,6 +7,7 @@ import { validation } from "../../middleware/validation";
 import CS from "./client.service";
 import * as CV from "./client.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
 
@@ -23,6 +24,7 @@ clientRouter.post(
     "/create",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.createClientSchema),
     CS.createClient
 );
@@ -53,6 +55,7 @@ clientRouter.put(
     "/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.updateClientSchema),
     CS.updateClient
 );
@@ -61,6 +64,7 @@ clientRouter.post(
     "/:id/documents",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     MulterHost({
         customExtension: [...allowedExtensions.uploadAnyFiles],
         fileSizeMB: 10,
@@ -72,6 +76,7 @@ clientRouter.delete(
     "/:id/deleteDocuments",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.deleteDocumentSchema),
     CS.deleteDocument
 );
@@ -80,6 +85,7 @@ clientRouter.delete(
     "/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.clientParamsSchema),
     CS.deleteClient
 );
@@ -88,6 +94,7 @@ clientRouter.delete(
     "/hardDelete/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.clientParamsSchema),
     CS.hardDeleteClient
 );
@@ -96,6 +103,7 @@ clientRouter.patch(
     "/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.clientParamsSchema),
     CS.unDeleteClient
 );

@@ -44,7 +44,7 @@ userRouter.get("/:userId",
 userRouter.patch("/updateUser/:userId",
   validation(UV.updateUserSchema),
   authentication(TokenType.access),
-  // tenantMiddleware,
+  tenantMiddleware,
   authorization(Role.ADMIN),
   US.updateUsersByAdmin
 );
@@ -52,6 +52,7 @@ userRouter.patch("/updateUser/:userId",
 userRouter.patch("/deleteUser/:userId",
   validation(UV.deleteUserSchema),
   authentication(TokenType.access),
+  tenantMiddleware,
   authorization(Role.ADMIN),
   US.deleteUsersByAdmin
 );
@@ -59,13 +60,15 @@ userRouter.patch("/deleteUser/:userId",
 userRouter.delete("/hardDeleteUser/:userId",
   validation(UV.deleteUserSchema),
   authentication(TokenType.access),
+  tenantMiddleware,
   authorization(Role.ADMIN),
   US.hardDeleteUser
 );
 
 userRouter.patch("/:userId/freeze",
   authentication(TokenType.access),
-  authorization(Role.ADMIN), 
+  authorization(Role.ADMIN),
+  tenantMiddleware,
   validation(UV.freezeUserSchema),
   US.freezeUser
 );

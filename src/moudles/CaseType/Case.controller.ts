@@ -6,6 +6,7 @@ import { TokenType } from "../../utils/token";
 import CS from "./Case.service";
 import { validation } from "../../middleware/validation";
 import * as CV  from "../CaseType/Case.validation";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
 
@@ -15,6 +16,7 @@ CaseTypeRouter.post(
   "/createCaseType",
   authentication(TokenType.access),
   authorization(Role.ADMIN, Role.STAFF),
+  tenantMiddleware,
   CS.createCaseType
 )
 
@@ -40,6 +42,7 @@ CaseTypeRouter.patch(
     "/:id/enable",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.caseTypeParamsSchema),
     CS.enableCaseType
 );
@@ -48,6 +51,7 @@ CaseTypeRouter.patch(
     "/:id/disable",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.caseTypeParamsSchema),
     CS.disableCaseType
 );
@@ -57,6 +61,7 @@ CaseTypeRouter.delete(
     "/:id/delete",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.caseTypeParamsSchema),
     CS.deleteCaseType
 );

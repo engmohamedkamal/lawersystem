@@ -6,6 +6,7 @@ import { authentication } from "../../middleware/authentication";
 import { TokenType } from "../../utils/token";
 import { authorization } from "../../middleware/authorization";
 import { Role } from "../../DB/model/user.model";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 const slotRouter = Router();
 
@@ -13,6 +14,7 @@ slotRouter.post(
   "/createSlot",
   authentication(TokenType.access),
   authorization(Role.ADMIN , Role.STAFF),
+  tenantMiddleware,
   validation(SV.createSlotSchema),
   SS.createSlot
 );
@@ -38,6 +40,7 @@ slotRouter.put(
   "/:id",
   authentication(TokenType.access),
   authorization(Role.ADMIN , Role.STAFF),
+  tenantMiddleware,
   validation(SV.updateSlotSchema),
   SS.updateSlot
 );
@@ -46,6 +49,7 @@ slotRouter.delete(
   "/:id",
   authentication(TokenType.access),
   authorization(Role.ADMIN , Role.STAFF),
+  tenantMiddleware,
   validation(SV.slotParamsSchema),
   SS.deleteSlot
 );

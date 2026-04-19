@@ -7,6 +7,7 @@ import { TokenType } from "../../utils/token";
 import { authorization } from "../../middleware/authorization";
 import { Role } from "../../DB/model/user.model";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 const taskRouter = Router();
 
@@ -28,6 +29,7 @@ taskRouter.post(
     "/",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles] }).single("file"),
     validation(TV.createTaskSchema),
     TS.createTask
@@ -57,6 +59,7 @@ taskRouter.patch(
     "/:taskId",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(TV.updateTaskSchema),
     TS.updateTask
 )
@@ -65,6 +68,7 @@ taskRouter.patch(
     "/:taskId/status",
     authentication(TokenType.access),
     validation(TV.updateTaskStatusSchema),
+    tenantMiddleware,
     TS.updateTaskStatus
 )
 
@@ -73,6 +77,7 @@ taskRouter.delete(
     "/:taskId",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     TS.deleteTask
 )
 

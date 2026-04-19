@@ -7,6 +7,7 @@ import { validation } from "../../middleware/validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
 import LR from "./lawReminder.service";
 import * as LV from "./lawReminder.validation";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 const lawReminderRouter = Router();
 
@@ -22,6 +23,7 @@ lawReminderRouter.post(
   "/upload",
   authentication(TokenType.access),
   authorization(Role.ADMIN, Role.STAFF),
+  tenantMiddleware,
   MulterHost({ customExtension: ["application/pdf"], fileSizeMB: 10 }).single("file"),
   validation(LV.uploadLawSchema),
   LR.uploadLawPdf
@@ -47,6 +49,7 @@ lawReminderRouter.delete(
   "/:lawId",
   authentication(TokenType.access),
   authorization(Role.ADMIN),
+  tenantMiddleware,
   validation(LV.deleteLawSchema),
   LR.deleteLaw
 );

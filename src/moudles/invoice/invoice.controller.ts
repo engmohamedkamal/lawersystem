@@ -6,6 +6,7 @@ import { authorization } from "../../middleware/authorization";
 import { validation } from "../../middleware/validation";
 import IS from "./invoice.service";
 import * as IV from "./invoice.validation";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
 
@@ -15,6 +16,7 @@ invoiceRouter.post(
     "/",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(IV.createInvoiceSchema),
     IS.createInvoice
 )
@@ -30,6 +32,7 @@ invoiceRouter.post(
     "/standalone",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(IV.createStandaloneInvoiceSchema),
     IS.createStandaloneInvoice
 )
@@ -59,6 +62,7 @@ invoiceRouter.put(
     "/:invoiceId",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     IS.updateInvoice
 )
 
@@ -74,6 +78,7 @@ invoiceRouter.delete(
     "/:invoiceId",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     IS.deleteInvoice
 )
 

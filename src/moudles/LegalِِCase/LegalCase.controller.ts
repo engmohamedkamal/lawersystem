@@ -8,6 +8,7 @@ import * as CV from "./LegalCase.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
 import invoiceRouter from "../invoice/invoice.controller";
 import  CS from "./LegalCase.service";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
 const LegalCaseRouter = Router({ mergeParams: true });
@@ -17,6 +18,7 @@ LegalCaseRouter.post(
     "/",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.createCaseSchema),
      CS.createCase
 );
@@ -47,6 +49,7 @@ LegalCaseRouter.put(
     "/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.updateCaseSchema),
     CS.updateCase
 )
@@ -55,6 +58,7 @@ LegalCaseRouter.patch(
     "/:id/fees",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.updateFeesSchema),
     CS.updateFees
 );
@@ -63,6 +67,7 @@ LegalCaseRouter.post(
     "/:id/team",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.updateTeamSchema),
     CS.addTeamMember
 );
@@ -72,6 +77,7 @@ LegalCaseRouter.delete(
     "/:id/team",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.updateTeamSchema),
     CS.removeTeamMember
 );
@@ -80,6 +86,7 @@ LegalCaseRouter.post(
     "/:id/attachments",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     MulterHost({ customExtension: [...allowedExtensions.image, "application/pdf"], fileSizeMB: 10 }).single("file"),
     CS.uploadAttachment
 );
@@ -88,6 +95,7 @@ LegalCaseRouter.delete(
     "/:id/attachments",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
     validation(CV.caseParamsSchema),
     CS.deleteAttachment
 );
@@ -96,6 +104,7 @@ LegalCaseRouter.delete(
     "/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.caseParamsSchema),
     CS.deleteCase
 );
@@ -104,6 +113,7 @@ LegalCaseRouter.delete(
     "/hardDelete/:id",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(CV.caseParamsSchema),
     CS.hardDeleteCase
 );

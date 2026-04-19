@@ -7,6 +7,7 @@ import SS from "./setting.service";
 import { validation } from "../../middleware/validation";
 import * as SV from "./setting.validation";
 import { allowedExtensions, MulterHost } from "../../middleware/multer";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
 
@@ -26,6 +27,7 @@ SettingsRouter.put(
     "/",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(SV.upsertSettingsSchema),
     SS.upsertSettings
 );
@@ -34,6 +36,7 @@ SettingsRouter.put(
     "/work-hours",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     validation(SV.updateWorkHoursSchema),
     SS.updateWorkHours
 );
@@ -42,6 +45,7 @@ SettingsRouter.delete(
    "/work-hours",
    authentication(TokenType.access),
    authorization(Role.ADMIN),
+   tenantMiddleware,
    validation(SV.deleteWorkHourSchema),
    SS.deleteWorkHour
 );
@@ -50,6 +54,7 @@ SettingsRouter.patch(
     "/logo",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     MulterHost({ customExtension: allowedExtensions.image, fileSizeMB: 3 }).single("logo"),
     SS.updateLogo
 );
@@ -58,6 +63,7 @@ SettingsRouter.delete(
     "/logo",
     authentication(TokenType.access),
     authorization(Role.ADMIN),
+    tenantMiddleware,
     SS.deleteLogo
 );
 

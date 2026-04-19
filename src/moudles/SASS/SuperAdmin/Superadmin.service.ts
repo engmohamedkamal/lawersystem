@@ -7,7 +7,7 @@ import PaymentModel from "../../../DB/model/SaaSModels/Payment.model";
 import UserModel from "../../../DB/model/user.model";
 import { sendEmail } from "../../../utils/SendEmail";
 import { getIO } from "../../../utils/socket";
-import { parseStorageSize } from "../../../utils/sizeConverter";
+import { formatStorageBytes, parseStorageSize } from "../../../utils/sizeConverter";
 import { PLAN_FEATURES } from "../constants/planFeatures";
 import { syncOfficeStorage } from "../../../jobs/syncStorage.cron";
 import { buildCloudinaryBytesMap } from "../../../helpers/cloudinaryStorage.helper";
@@ -523,33 +523,65 @@ class SuperAdminService {
             .populate("subscription.planId", "name slug")
             .sort({ createdAt: -1 })
             .limit(5)
-            .select("name email subdomain subscription isActive createdAt"),
+            .select("name email subdomain subscription isActive createdAt")
+            .lean(),
         PaymentModel.find({ status: "success" })
-            .populate("office", "name subdomain")
+            .populate("office", "name subdomain createdAt")
             .populate("plan", "name")
             .sort({ paidAt: -1 })
             .limit(5)
-            .select("amount billingInterval paidAt planSnapshot.name paymentMethod"),
+            .select("amount originalAmount billingInterval paidAt createdAt planSnapshot.name paymentMethod")
+            .lean(),
     ])
+
+
+    const formattedExpiringSoon = expiringSoon.map((o: any) => ({
+        id: o._id,
+        name: o.name,
+        email: o.email,
+        subdomain: o.subdomain,
+        planSlug: o.subscription?.planSlug,
+        endDate: o.subscription?.endDate
+    }));
+
+    const formattedRecentOffices = recentOffices.map((o: any) => ({
+        id: o._id,
+        name: o.name,
+        email: o.email,
+        subdomain: o.subdomain,
+        planName: o.subscription?.planId?.name || "بدون خطة",
+        status: o.subscription?.status,
+        isActive: o.isActive,
+        joinedAt: o.createdAt
+    }));
+
+    const formattedRecentPayments = recentPayments.map((p: any) => ({
+        id: p._id,
+        officeName: p.office?.name || "مكتب محذوف",
+        subdomain: p.office?.subdomain || "",
+        planName: p.plan?.name || p.planSnapshot?.name || "غير معروف",
+        amountPaid: p.amount,
+        originalAmount: p.originalAmount,
+        interval: p.billingInterval === "yearly" ? "سنوي" : "شهري",
+        method: p.paymentMethod || "رصيد",
+        paymentDate: p.paidAt || p.createdAt,
+        officeJoinedAt: p.office?.createdAt
+    }));
 
     return res.status(200).json({
         message: "success",
         stats: {
-            offices: {
-                total: totalOffices,
-                active: activeOffices,
-                suspended: suspendedOffices,
-                expired: expiredOffices,
-            },
-            users: totalUsers,
-            revenue: {
-                total: totalRevenue,
-                thisMonth: revenueThisMonth,
-            },
+            totalOffices,
+            activeOffices,
+            suspendedOffices,
+            expiredOffices,
+            totalUsers,
+            totalRevenue,
+            revenueThisMonth,
         },
-        expiringSoon,
-        recentOffices,
-        recentPayments,
+        expiringSoon: formattedExpiringSoon,
+        recentOffices: formattedRecentOffices,
+        recentPayments: formattedRecentPayments,
     })
 
     }
@@ -571,11 +603,28 @@ class SuperAdminService {
                 .sort({ createdAt: -1 })
                 .skip((pageNum - 1) * limitNum)
                 .limit(limitNum)
-                .select("-paymobPaymentKey"),
+                .select("-paymobPaymentKey")
+                .lean(),
             PaymentModel.countDocuments(filter),
         ])
  
-        return res.status(200).json({ message: "success", total, page: pageNum, totalPages: Math.ceil(total / limitNum), payments })
+        const formattedPayments = payments.map((p: any) => ({
+            id: p._id,
+            officeName: p.office?.name || "مكتب محذوف",
+            officeEmail: p.office?.email || "",
+            subdomain: p.office?.subdomain || "",
+            planName: p.plan?.name || p.planSnapshot?.name || "غير معروف",
+            amount: p.amount,
+            originalAmount: p.originalAmount,
+            discount: p.discountAmount || 0,
+            couponCode: p.coupon?.code || null,
+            interval: p.billingInterval === "yearly" ? "سنوي" : "شهري",
+            status: p.status,
+            paidAt: p.paidAt,
+            createdAt: p.createdAt
+        }));
+
+        return res.status(200).json({ message: "success", total, page: pageNum, totalPages: Math.ceil(total / limitNum), payments: formattedPayments })
     }
 
     //OFFICES
@@ -597,12 +646,30 @@ class SuperAdminService {
  
         const [offices, total] = await Promise.all([
             OfficeModel.find(filter)
-                .populate("subscription.planId", "name slug monthlyPrice yearlyPrice")
+                .populate("subscription.planId", "name slug monthlyPrice yearlyPrice features")
                 .sort({ createdAt: -1 })
                 .skip((pageNum - 1) * limitNum)
-                .limit(limitNum),
+                .limit(limitNum)
+                .lean(),
             OfficeModel.countDocuments(filter),
         ])
+
+        // Format storage in each office
+        offices.forEach((office: any) => {
+            if (office.features && office.features[PLAN_FEATURES.STORAGE_MAX]) {
+                office.features[PLAN_FEATURES.STORAGE_MAX] = formatStorageBytes(office.features[PLAN_FEATURES.STORAGE_MAX]);
+            }
+
+            const plan = office.subscription?.planId as any;
+            if (plan && plan.features && Array.isArray(plan.features)) {
+                plan.features = plan.features.map((f: any) => {
+                    if (f.key === PLAN_FEATURES.STORAGE_MAX && typeof f.defaultValue === "number") {
+                        f.defaultValue = formatStorageBytes(f.defaultValue);
+                    }
+                    return f;
+                });
+            }
+        });
  
         return res.status(200).json({
             message: "success",
@@ -616,7 +683,8 @@ class SuperAdminService {
  
         const [office, usersCount, paymentsCount, totalPaid] = await Promise.all([
             OfficeModel.findById(officeId)
-                .populate("subscription.planId", "name slug monthlyPrice yearlyPrice features"),
+                .populate("subscription.planId", "name slug monthlyPrice yearlyPrice features")
+                .lean(),
             UserModel.countDocuments({ officeId, isDeleted: false }),
             PaymentModel.countDocuments({ office: officeId, status: "success" }),
             PaymentModel.aggregate([
@@ -626,6 +694,20 @@ class SuperAdminService {
         ])
  
         if (!office) throw new AppError("office not found", 404)
+
+        if (office.features && (office.features as any)[PLAN_FEATURES.STORAGE_MAX]) {
+            (office.features as any)[PLAN_FEATURES.STORAGE_MAX] = formatStorageBytes((office.features as any)[PLAN_FEATURES.STORAGE_MAX]);
+        }
+
+        const plan = office.subscription?.planId as any;
+        if (plan && plan.features && Array.isArray(plan.features)) {
+            plan.features = plan.features.map((f: any) => {
+                if (f.key === PLAN_FEATURES.STORAGE_MAX && typeof f.defaultValue === "number") {
+                    f.defaultValue = formatStorageBytes(f.defaultValue);
+                }
+                return f;
+            });
+        }
  
         return res.status(200).json({ message: "success", office, usersCount, paymentsCount, totalPaid })
     }

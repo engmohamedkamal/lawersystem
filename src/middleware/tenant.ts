@@ -18,34 +18,27 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
     }
 
     if (!office.isActive) {
-        throw new AppError("تم إيقاف هذا المكتب", 403)
-    }
-
-    if (!office.subscription?.status) {
-        throw new AppError("بيانات الاشتراك غير صالحة", 500)
-    }
-
-    if (!office.subscription?.endDate) {
-        throw new AppError("تاريخ انتهاء الاشتراك غير موجود", 500)
+        throw new AppError("تم إيقاف هذا المكتب إدارياً - يرجى التواصل مع الدعم", 403)
     }
 
     const now = new Date()
+    const isExpired = office.subscription.endDate < now || office.subscription.status === "expired";
 
-    if (office.subscription.endDate < now) {
+    if (isExpired) {
         if (office.subscription.status === "active") {
             await OfficeModel.findByIdAndUpdate(officeId, {
-                $set: {
-                    "subscription.status": "expired",
-                    isActive: false,
-                },
+                $set: { "subscription.status": "expired" },
             })
+            office.subscription.status = "expired";
         }
 
-        throw new AppError("انتهى اشتراكك — يرجى التجديد", 402)
+        if (req.method !== 'GET') {
+            throw new AppError("انتهى اشتراكك — يرجى التجديد لتتمكن من إضافة أو تعديل البيانات", 402)
+        }
     }
 
-    if (office.subscription.status !== "active") {
-        throw new AppError("الاشتراك غير نشط", 402)
+    if (office.subscription.status !== "active" && office.subscription.status !== "expired") {
+        throw new AppError("الاشتراك غير مفعّل", 402)
     }
 
     ;(req as any).office = office

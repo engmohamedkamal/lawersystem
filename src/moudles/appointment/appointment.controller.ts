@@ -7,6 +7,7 @@ import * as AV from "./appointment.validation";
 import AS from "./appointment.service";
 import { TokenType } from "../../utils/token";
 import { Role } from "../../DB/model/user.model";
+import { tenantMiddleware } from "../../middleware/tenant";
 
 
     const appointmentRouter = Router()
@@ -14,6 +15,7 @@ import { Role } from "../../DB/model/user.model";
     appointmentRouter.post(
       "/BOOKED",
       validation(AV.createAppointmentSchema),
+      tenantMiddleware,
       AS.createAppointment
     );
 
@@ -36,6 +38,7 @@ import { Role } from "../../DB/model/user.model";
       "/:id/cancel",
       authentication(TokenType.access),
       authorization(Role.ADMIN, Role.STAFF),
+      tenantMiddleware,
       validation(AV.paramsSchema),
       AS.cancelAppointment
    );
@@ -44,6 +47,7 @@ import { Role } from "../../DB/model/user.model";
       "/:id/status",
       authentication(TokenType.access),
       authorization(Role.ADMIN, Role.STAFF),
+      tenantMiddleware,
       validation(AV.updateStatusSchema),
       AS.updateAppointmentStatus
   );
