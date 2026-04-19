@@ -550,6 +550,7 @@ class SuperAdminService {
         email: o.email,
         subdomain: o.subdomain,
         planName: o.subscription?.planId?.name || "بدون خطة",
+        amountPaid: o.subscription?.lastPaymentAmount || 0,
         status: o.subscription?.status,
         isActive: o.isActive,
         joinedAt: o.createdAt
