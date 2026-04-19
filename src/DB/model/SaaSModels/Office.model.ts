@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose"
 
-export const SUBSCRIPTION_STATUSES = ["active", "suspended", "cancelled", "expired"] as const
+export const SUBSCRIPTION_STATUSES = ["active", "suspended", "cancelled", "expired", "pending"] as const
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
 
 export interface ISubscription {

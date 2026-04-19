@@ -144,9 +144,7 @@ class SubscriptionService {
         const finalAmount = Math.max(originalAmount - discountAmount, 0)
         const features = buildFeaturesFromPlan(plan)
 
-        // إنشاء المكتب — غير نشط لحد ما يكمل الدفع
-        const trialEnd = new Date(); trialEnd.setDate(trialEnd.getDate() + 1) // endDate مؤقتة
-
+        // إنشاء المكتب — بانتظار التفعيل المانيوال أو الدفع
         const office = await OfficeModel.create({
             name: officeName,
             email: adminEmail,
@@ -155,14 +153,14 @@ class SubscriptionService {
             subscription: {
                 planId: plan._id,
                 planSlug: plan.slug,
-                status: "active",
+                status: "pending",
                 startDate: new Date(),
-                endDate: trialEnd,   // هيتحدث بعد الدفع من الـ webhook
+                endDate: new Date(),   // سيتم تحديثه عند التفعيل
                 billingInterval,
                 autoRenew: saveCard,
             },
             features,
-            isActive: false,   // غير نشط لحد ما يدفع
+            isActive: true, 
         })
 
         // إنشاء الـ Admin الأول

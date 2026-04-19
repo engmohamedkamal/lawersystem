@@ -21,6 +21,10 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
         throw new AppError("تم إيقاف هذا المكتب إدارياً - يرجى التواصل مع الدعم", 403)
     }
 
+    if (office.subscription?.status === "pending") {
+        throw new AppError("حسابك بانتظار التفعيل، يرجى سداد الرسوم أو التواصل مع الإدارة", 402)
+    }
+
     const now = new Date()
     const isExpired = office.subscription.endDate < now || office.subscription.status === "expired";
 
