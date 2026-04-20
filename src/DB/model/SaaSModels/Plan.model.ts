@@ -76,7 +76,6 @@ const PlanSchema = new mongoose.Schema<IPlan>(
     { timestamps: true }
 )
 
-PlanSchema.index({ slug: 1 },{ unique: true })
 PlanSchema.index({ isActive: 1, sortOrder: 1 })
 
 const PlanModel = (mongoose.models.Plan as mongoose.Model<IPlan>) || mongoose.model<IPlan>("Plan", PlanSchema)

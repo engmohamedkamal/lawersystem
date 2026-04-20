@@ -1,12 +1,13 @@
 import z from "zod"
 import { DAYS } from "../../DB/model/settings.model"
+import { ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG } from "../../utils/phoneValidation"
 
 export const upsertSettingsSchema = {
   body: z.object({
     officeName: z.string().trim().min(2).max(100),
     crNumber: z.string().trim().optional(),
     officialEmail: z.string().trim().toLowerCase().email("invalid email format").optional(),
-    phone: z.string().trim().optional(),
+    phone: z.string().trim().regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG).optional(),
     addressDetail: z.string().trim().max(300).optional(),
     governorate: z.string().trim().optional(),
     country: z.string().trim().optional(),

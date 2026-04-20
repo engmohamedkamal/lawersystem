@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG } from "../../../utils/phoneValidation";
 
 export const registerOfficeSchema = {
   body: z.object({
@@ -21,7 +22,7 @@ export const registerOfficeSchema = {
     phone: z
       .string()
       .min(1, "رقم الهاتف مطلوب")
-      .regex(/^01[0125][0-9]{8}$/, "صيغة رقم الهاتف المصري غير صحيحة"),
+      .regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
       
     UserName: z
       .string()
@@ -48,7 +49,7 @@ export const registerOfficeSchema = {
     
     walletPhone: z
       .string()
-      .regex(/^01[0125][0-9]{8}$/, "صيغة رقم المحفظة غير صحيحة")
+      .regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG)
       .optional(),
     
     paymentMethod: z

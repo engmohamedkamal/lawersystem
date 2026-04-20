@@ -3,13 +3,18 @@ import mongoose from "mongoose";
 import { completeExpiredAppointments } from "./completeAppointments.job";
 import InvoiceModel from "../DB/model/invoice.model";
 import { sessionReminderJob } from "./Session.cron";
-import { startExpirePlanOffersCron } from "./expirePlanOffers";
 import { syncOfficeStorage } from "./syncStorage.cron";
+import { updateExpiredSubscriptions } from "./Subscription.cron";
+import PlanModel from "../DB/model/SaaSModels/Plan.model";
 
 let appointmentsJobRunning = false;
 let reminderJobRunning = false;
 let invoiceJobRunning = false;
 let storageSyncJobRunning = false;
+let subscriptionJobRunning = false;
+let planOffersJobRunning = false;
+
+
 
 const isDbConnected = () => mongoose.connection.readyState === 1;
 
@@ -23,7 +28,6 @@ const isMongoConnectionError = (error: any) => {
 };
 
 export const startCronJobs = () => {
-  startExpirePlanOffersCron();
 
   cron.schedule("*/5 * * * *", async () => {
     if (appointmentsJobRunning) {
@@ -144,6 +148,77 @@ export const startCronJobs = () => {
         }
     } finally {
         storageSyncJobRunning = false;
+    }
+  });
+
+  cron.schedule("5 0 * * *", async () => {
+    if (subscriptionJobRunning) {
+      console.warn("[CRON] updateExpiredSubscriptions skipped: previous run still active");
+      return;
+    }
+
+    if (!isDbConnected()) {
+      console.warn("[CRON] DB not connected, skipping updateExpiredSubscriptions");
+      return;
+    }
+
+    subscriptionJobRunning = true;
+
+    try {
+      console.log("[CRON] updateExpiredSubscriptions started");
+      await updateExpiredSubscriptions();
+      console.log("[CRON] updateExpiredSubscriptions finished");
+    } catch (error: any) {
+      if (isMongoConnectionError(error)) {
+        console.warn("[CRON] DB unavailable during updateExpiredSubscriptions, skipping");
+      } else {
+        console.error("[SUBSCRIPTION CRON ERROR]", error);
+      }
+    } finally {
+      subscriptionJobRunning = false;
+    }
+  });
+
+  cron.schedule("*/15 * * * *", async () => {
+    if (planOffersJobRunning) {
+      console.warn("[CRON] expirePlanOffers skipped: previous run still active");
+      return;
+    }
+
+    if (!isDbConnected()) {
+      console.warn("[CRON] DB not connected, skipping expirePlanOffers");
+      return;
+    }
+
+    planOffersJobRunning = true;
+
+    try {
+      const now = new Date();
+      const result = await PlanModel.updateMany(
+        {
+          "offer.validUntil": { $lte: now },
+          "offer.isActive": true,
+        },
+        {
+          $unset: {
+            offer: 1,
+            monthlyPriceAfterDiscount: 1,
+            yearlyPriceAfterDiscount: 1,
+          },
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        console.log(`[CRON] Expired offers removed from ${result.modifiedCount} plan(s).`);
+      }
+    } catch (error: any) {
+      if (isMongoConnectionError(error)) {
+        console.warn("[CRON] DB unavailable during expirePlanOffers, skipping");
+      } else {
+        console.error("[PLAN OFFERS CRON ERROR]", error);
+      }
+    } finally {
+      planOffersJobRunning = false;
     }
   });
 

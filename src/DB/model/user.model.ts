@@ -19,7 +19,7 @@ export interface IUser extends mongoose.Document{
     },
     lawyerRegistrationNo?: string,
     role:Role,
-    phone:number,
+    phone:string,
     department : string,
     salary : number,
     employmentDate: Date
@@ -45,7 +45,7 @@ const UserSchema = new mongoose.Schema<IUser>({
         sizeBytes: { type : Number, default: 0 }
     },
     role : {type : String , default : Role.STAFF},
-    phone : {type : Number , required : true},
+    phone : {type : String , required : true , trim : true},
     department : { type : String},
     salary : { type : Number , default : 0},
     employmentDate: {type: Date, default: Date.now , required: true , immutable: true},

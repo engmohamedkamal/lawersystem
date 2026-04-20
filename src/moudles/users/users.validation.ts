@@ -1,5 +1,6 @@
 import z, { object } from "zod"
 import { Role } from "../../DB/model/user.model";
+import { ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG } from "../../utils/phoneValidation";
 
 
 export const addUsersByAdminSchema = {
@@ -11,7 +12,7 @@ export const addUsersByAdminSchema = {
     .email("invalid email format"),
     password : z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
     UserName : z.string().min(2).max(50).trim(),
-    phone : z.string().regex(/^01[0125][0-9]{8}$/),
+    phone : z.string().regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
     department : z.string(),
     role : z.nativeEnum(Role)!,
     lawyerRegistrationNo : z.string().min(7).max(7).optional(),
@@ -81,7 +82,7 @@ export const updateUserSchema = {
     .optional(),
     password : z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/).optional(),
     UserName : z.string().min(3).max(40).trim().optional(),
-    phone : z.string().regex(/^01[0125][0-9]{8}$/).optional(),
+    phone : z.string().regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG).optional(),
     department: z.string().trim().min(2).optional(),
     role: z.nativeEnum(Role).optional(),
     lawyerRegistrationNo: z.string().min(7).max(7).optional(),

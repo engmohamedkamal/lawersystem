@@ -1,5 +1,6 @@
 import { CLIENT_TYPES } from "../../DB/model/client.model";
 import z from "zod";
+import { ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG } from "../../utils/phoneValidation";
 
 
 
@@ -9,7 +10,7 @@ export const createClientSchema = {
         fullName: z.string().trim().min(2).max(100),
         crNumber: z.string().trim().regex(/^\d{14}$/, "crNumber must be exactly 14 digits"),
         email:    z.string().trim().toLowerCase().email("invalid email").optional(),
-        phone:    z.string().trim().min(7),
+        phone:    z.string().trim().regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
         address:  z.string().trim().max(300).optional(),
         notes:    z.string().trim().max(1000).optional(),
     }),
@@ -22,7 +23,7 @@ export const updateClientSchema = {
         fullName: z.string().trim().min(2).max(100).optional(),
         crNumber: z.string().trim().optional(),
         email:    z.string().trim().toLowerCase().email("invalid email").optional(),
-        phone:    z.string().trim().min(7).optional(),
+        phone:    z.string().trim().regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG).optional(),
         address:  z.string().trim().max(300).optional(),
         notes:    z.string().trim().max(1000).optional(),
     }),

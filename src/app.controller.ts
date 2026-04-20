@@ -33,6 +33,7 @@ import { seedDocumentTemplates } from "./seeds/documentTemplates.seed"
 import superAdminRouter from "./moudles/SASS/SuperAdmin/SuperAdmin.controller"
 import saasRouter from "./moudles/SASS/subdcripition/subdcripition.controller"
 import mySubscriptionRouter from "./moudles/SASS/Mysubscriptio/MySubscription.controller"
+import { startAllWorkers } from "./queues"
 
 
 const app:express.Application = express()
@@ -51,7 +52,7 @@ const limiter = rateLimit({
 	ipv6Subnet: 56,
 })
 
-const bootStrap = ()=>{
+const bootStrap = async () => {
     app.use(express.json({limit:"50mb"}))
     app.use(express.urlencoded({limit:"50mb",extended:true}))
     app.set("trust proxy" , 1)
@@ -112,6 +113,7 @@ const bootStrap = ()=>{
     connectionDB()
 
     startCronJobs(); 
+    await startAllWorkers();
 
     seedDocumentTemplates().catch((e) => console.error("[SEED ERROR]", e))
 

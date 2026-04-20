@@ -79,8 +79,7 @@ const OfficeSchema = new mongoose.Schema<IOffice>(
     { timestamps: true }
 )
 
-OfficeSchema.index({ email: 1 },    { unique: true })
-OfficeSchema.index({ subdomain: 1 }, { unique: true })
+
 OfficeSchema.index({ "subscription.status":  1 })
 OfficeSchema.index({ "subscription.endDate": 1 })
 
