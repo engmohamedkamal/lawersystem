@@ -424,11 +424,11 @@ class ClientService {
         const clientIds = clients.map(c => c._id)
  
         const [cases, invoices] = await Promise.all([
-            LegalCaseModel.find({ client: { $in: clientIds }, isDeleted: false })
+            LegalCaseModel.find({ client: { $in: clientIds }, isDeleted: false, officeId: req.user?.officeId })
                 .populate("caseType",   "name")
                 .populate("assignedTo", "UserName")
                 .select("caseNumber status caseType openedAt assignedTo fees extraPayments client"),
-            InvoiceModel.find({ client: { $in: clientIds }, isDeleted: false, status: { $ne: "ملغية" } })
+            InvoiceModel.find({ client: { $in: clientIds }, isDeleted: false, officeId: req.user?.officeId, status: { $ne: "ملغية" } })
                 .select("invoiceNumber total paidAmount remaining status isFromFees legalCase issueDate client items paymentMethod"),
         ])
  
@@ -654,6 +654,11 @@ class ClientService {
             const extraTotal  = (client.extraPayments ?? []).reduce((s: number, ep: any) => s + (ep.amount ?? 0), 0)
             const activeCases = cClientCases.filter(c => !["منتهية","مؤرشفة"].includes(c.status)).length
  
+            const invoicesPaid = cClientInvoices.reduce((s: number, inv) => s + (inv.paidAmount ?? 0), 0)
+            const invoicesRemaining = cClientInvoices
+                .filter(inv => !inv.isFromFees)
+                .reduce((s: number, inv) => s + (inv.remaining ?? 0), 0)
+
             const row = ws5.addRow({
                 client:        client.fullName,
                 casesCount:    cClientCases.length,
@@ -661,8 +666,8 @@ class ClientService {
                 totalFees,
                 paidFees,
                 extraPayments: extraTotal,
-                grandTotal:    paidFees + extraTotal,
-                remaining:     totalFees - paidFees,
+                grandTotal:    invoicesPaid,
+                remaining:     (totalFees - paidFees) + invoicesRemaining,
                 invoicesCount: cClientInvoices.length,
             })
             applyRow(row, i)

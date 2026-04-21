@@ -100,14 +100,6 @@ LegalCaseRouter.delete(
     CS.deleteAttachment
 );
 
-LegalCaseRouter.delete(
-    "/:id",
-    authentication(TokenType.access),
-    authorization(Role.ADMIN),
-    tenantMiddleware,
-    validation(CV.caseParamsSchema),
-    CS.deleteCase
-);
 
 LegalCaseRouter.delete(
     "/hardDelete/:id",

@@ -57,13 +57,6 @@ userRouter.patch("/deleteUser/:userId",
   US.deleteUsersByAdmin
 );
 
-userRouter.delete("/hardDeleteUser/:userId",
-  validation(UV.deleteUserSchema),
-  authentication(TokenType.access),
-  tenantMiddleware,
-  authorization(Role.ADMIN),
-  US.hardDeleteUser
-);
 
 userRouter.patch("/:userId/freeze",
   authentication(TokenType.access),

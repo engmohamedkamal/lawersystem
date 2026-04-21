@@ -228,16 +228,6 @@ class usersService {
         return res.status(200).json({ message: "done, user deleted", user });
         };
 
-    hardDeleteUser = async (req: Request, res: Response, next: NextFunction) => {
-        const { userId } = req.params as unknown as deleteUserParamsType;
-
-        const user = await UserModel.findOneAndDelete({ _id: userId, officeId: req.user?.officeId }).select("_id UserName email role");
-
-        if (!user) throw new AppError("user not found", 404);
-
-        return res.status(200).json({ message: "done, user permanently deleted (Hard Delete)", user });
-        };
-
     freezeUser = async (req: Request, res: Response, next: NextFunction) => {
        const { userId } = req.params as unknown as freezeUserParamsType;
 

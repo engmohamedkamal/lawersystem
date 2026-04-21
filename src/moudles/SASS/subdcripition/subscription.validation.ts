@@ -19,10 +19,10 @@ export const registerOfficeSchema = {
       .min(8, "كلمة المرور مطلوبة ويجب ألا تقل عن 8 أحرف")
       .regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/, "كلمة المرور يجب أن تحتوي على الأقل على حرف كبير، حرف صغير، ورقم"),
     
-    phone: z
-      .string()
-      .min(1, "رقم الهاتف مطلوب")
-      .regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
+    // phone: z
+    //   .string()
+    //   .min(1, "رقم الهاتف مطلوب")
+    //   .regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
       
     UserName: z
       .string()

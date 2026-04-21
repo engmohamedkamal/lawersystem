@@ -372,24 +372,6 @@ class LegalCaseService {
         return res.status(200).json({ message: "Attachment deleted successfully", case: updated })
     }
 
-    deleteCase = async (req: Request, res: Response, next: NextFunction) => {
-        const { id } = req.params
-
-        const LegalCase = await LegalCaseModel.findOne({ _id : id , isDeleted : false, officeId: req.user?.officeId})
-
-        if(!LegalCase) throw new AppError("case not found", 404)
-
-        await LegalCaseModel.findOneAndUpdate({ _id: id, officeId: req.user?.officeId } , {
-            isDeleted : true,
-            DeletedAt : Date.now(),
-            DeletedBy : req.user?.id
-        })
-
-        await cascadeSoftDeleteCase(id as string, req.user?.officeId as any, req.user?.id as any)
-
-        return res.status(200).json({ message: "Case soft-deleted successfully" })
-    }
-
     hardDeleteCase = async (req: Request, res: Response, next: NextFunction) => {
         const { id } = req.params
 
