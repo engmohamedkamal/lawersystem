@@ -49,7 +49,7 @@ userRouter.patch("/updateUser/:userId",
   US.updateUsersByAdmin
 );
 
-userRouter.patch("/deleteUser/:userId",
+userRouter.delete("/deleteUser/:userId",
   validation(UV.deleteUserSchema),
   authentication(TokenType.access),
   tenantMiddleware,
