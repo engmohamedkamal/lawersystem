@@ -11,8 +11,8 @@ import OfficeModel from "../../DB/model/SaaSModels/Office.model"
 
 class PayrollService {
     
-  private async ensureMonthEditable(month: number, year: number) {
-    const payrollMonth = await PayrollMonthModel.findOne({ month, year })
+  private async ensureMonthEditable(officeId: any, month: number, year: number) {
+    const payrollMonth = await PayrollMonthModel.findOne({ officeId, month, year })
     if (payrollMonth?.status === PayrollMonthStatus.APPROVED) {
       throw new AppError("payroll month already approved and cannot be edited", 400)
     }
@@ -116,10 +116,22 @@ class PayrollService {
     assertFeatureEnabled(office, PLAN_FEATURES.PAROLE_ENABLED)
 
     const date = body.date ? new Date(body.date) : new Date()
-    const month = date.getMonth() + 1
-    const year = date.getFullYear()
+    let month = date.getMonth() + 1
+    let year = date.getFullYear()
 
-    await this.ensureMonthEditable(month, year)
+    let isApproved = true;
+    while (isApproved) {
+      const payrollMonth = await PayrollMonthModel.findOne({ officeId, month, year })
+      if (payrollMonth?.status === PayrollMonthStatus.APPROVED) {
+        month++;
+        if (month > 12) {
+          month = 1;
+          year++;
+        }
+      } else {
+        isApproved = false;
+      }
+    }
 
     const employee = await UserModel.findOne({ _id: body.employee, officeId: req.user?.officeId })
     if (!employee) throw new AppError("employee not found", 404)
@@ -200,7 +212,7 @@ class PayrollService {
             { totalBasic: 0, totalBonuses: 0, totalDeductions: 0, totalAdvances: 0, totalNet: 0 }
         )
  
-        const approval = await PayrollMonthModel.findOne({ month, year }).lean()
+        const approval = await PayrollMonthModel.findOne({ officeId: req.user?.officeId, month, year }).lean()
  
         return res.status(200).json({
             message: "success",
@@ -289,13 +301,13 @@ class PayrollService {
   approveMonth = async (req: Request, res: Response, next: NextFunction) => {
     const { month, year } = req.body as approvePayrollSchemaType
 
-    const exists = await PayrollMonthModel.findOne({ month, year })
+    const exists = await PayrollMonthModel.findOne({ officeId: req.user?.officeId, month, year })
     if (exists?.status === PayrollMonthStatus.APPROVED) {
       throw new AppError("payroll month already approved", 400)
     }
 
     const approved = await PayrollMonthModel.findOneAndUpdate(
-      { month, year },
+      { officeId: req.user?.officeId, month, year },
       {
         $set: {
           status: PayrollMonthStatus.APPROVED,
@@ -336,7 +348,7 @@ class PayrollService {
     const transaction = await PayrollTransactionModel.findById(transactionId)
     if (!transaction || transaction.isDeleted) throw new AppError("transaction not found", 404)
 
-    await this.ensureMonthEditable(transaction.month, transaction.year)
+    await this.ensureMonthEditable(req.user?.officeId, transaction.month, transaction.year)
 
     if (body.amount !== undefined) transaction.amount = body.amount
     if (body.note !== undefined) transaction.note = body.note
@@ -355,7 +367,7 @@ class PayrollService {
     const transaction = await PayrollTransactionModel.findById(transactionId)
     if (!transaction || transaction.isDeleted) throw new AppError("transaction not found", 404)
 
-    await this.ensureMonthEditable(transaction.month, transaction.year)
+    await this.ensureMonthEditable(req.user?.officeId, transaction.month, transaction.year)
 
     transaction.isDeleted = true
     await transaction.save()
