@@ -61,12 +61,19 @@ export const startSubscriptionWorkers = () => {
         to: email,
         subject: "تنبيه بانتهاء الاشتراك",
         fromName: officeName,
-        html: buildEmailTemplate(
-          "تنبيه بانتهاء الاشتراك",
-          `<p>مرحبًا <strong>${officeName}</strong>،</p>
-           <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
-           <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>`
-        ),
+        html: buildEmailTemplate({
+          title: "تنبيه بانتهاء الاشتراك",
+          subtitle: officeName,
+          badge: "EXPIRED",
+          bodyHtml: `
+            <div class="quote-box">
+              نود إبلاغكم بأن اشتراككم قد انتهى اليوم. يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.
+            </div>
+            <div class="info-card" style="text-align: center;">
+              <a href="#" class="btn-black">RENEW SUBSCRIPTION &rarr;</a>
+            </div>
+          `
+        }),
       });
 
       console.log(`[EXPIRE WORKER] ✅ ${officeName} marked expired`);

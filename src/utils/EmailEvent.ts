@@ -78,13 +78,27 @@ export const emitSubscriptionExpiringSoon = ({
     to: email,
     subject: "تنبيه بقرب انتهاء الاشتراك",
     fromName: officeName,
-    html: buildEmailTemplate(
-      "تنبيه بقرب انتهاء الاشتراك",
-      `<p>مرحبًا <strong>${officeName}</strong>،</p>
-       <p>نود تذكيركم بأن اشتراككم سينتهي خلال <span class="danger">${daysLeft}</span> يوم.</p>
-       <p><strong>تاريخ الانتهاء:</strong> ${new Date(endDate).toLocaleDateString("ar-EG")}</p>
-       <p>يرجى التجديد قبل انتهاء الاشتراك لتجنب توقف الخدمة.</p>`
-    ),
+    html: buildEmailTemplate({
+      title: "تنبيه بقرب انتهاء الاشتراك",
+      subtitle: officeName,
+      badge: "ALERT",
+      bodyHtml: `
+        <div class="info-card">
+          <div class="info-col">
+            <span class="label">📅 تاريخ الانتهاء</span>
+            <span class="value" style="font-size: 16px;">${new Date(endDate).toLocaleDateString("ar-EG")}</span>
+          </div>
+          <div class="info-col info-col-left">
+            <a href="#" class="btn-black">RENEW NOW &rarr;</a>
+          </div>
+        </div>
+
+        <div class="quote-box">
+          نود تذكيركم بأن اشتراككم سينتهي خلال <span class="danger">${daysLeft}</span> يوم.
+          يرجى التجديد قبل انتهاء الاشتراك لتجنب توقف الخدمة.
+        </div>
+      `
+    }),
   });
 };
 
@@ -96,12 +110,19 @@ export const emitSubscriptionExpired = ({
     to: email,
     subject: "تنبيه بانتهاء الاشتراك",
     fromName: officeName,
-    html: buildEmailTemplate(
-      "تنبيه بانتهاء الاشتراك",
-      `<p>مرحبًا <strong>${officeName}</strong>،</p>
-       <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
-       <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>`
-    ),
+    html: buildEmailTemplate({
+      title: "تنبيه بانتهاء الاشتراك",
+      subtitle: officeName,
+      badge: "EXPIRED",
+      bodyHtml: `
+        <div class="quote-box">
+          نود إبلاغكم بأن اشتراككم قد انتهى اليوم. يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.
+        </div>
+        <div class="info-card" style="text-align: center;">
+          <a href="#" class="btn-black">RENEW SUBSCRIPTION &rarr;</a>
+        </div>
+      `
+    }),
   });
 };
 
@@ -121,13 +142,53 @@ export const emitItemAssigned = async ({
       await emailQueue.add("item-assigned", {
         to: user.email,
         subject: title,
-        html: buildEmailTemplate(
-          title,
-          `<p>مرحباً <strong>${user.UserName}</strong>،</p>
-           <p>${body}</p>
-           <br/>
-           <p>يرجى مراجعة النظام لمزيد من التفاصيل.</p>`
-        ),
+        html: buildEmailTemplate({
+          title: title,
+          subtitle: "مراجعة المهام الموكلة وإثبات التوافق القانوني.",
+          badge: "HIGH PRIORITY",
+          headerId: `ID: ${user._id.toString().slice(-6).toUpperCase()}`,
+          bodyHtml: `
+            <div class="grid-2">
+              <div class="grid-col">
+                <span class="label">CLIENT NAME</span>
+                <span class="value">Lexore Client</span>
+              </div>
+              <div class="grid-col">
+                <span class="label">ASSIGNED LAWYER</span>
+                <span class="value">${user.UserName}</span>
+              </div>
+            </div>
+
+            <div class="info-card">
+              <div class="info-col">
+                <span class="label">📅 FINAL DEADLINE</span>
+                <span class="value" style="font-size: 16px;">يرجى المراجعة فوراً</span>
+              </div>
+              <div class="info-col info-col-left">
+                <a href="#" class="btn-black">OPEN CASE &rarr;</a>
+              </div>
+            </div>
+
+            <div class="quote-box">
+              "${body}"
+            </div>
+
+            <div class="grid-3">
+              <div class="grid-col">
+                <span class="label">STATUS</span>
+                <span class="value"><span class="dot"></span> Pending Review</span>
+              </div>
+              <div class="grid-col">
+                <span class="label">DOCUMENT TYPE</span>
+                <span class="value">Draft v1.0</span>
+              </div>
+              <div class="grid-col">
+                <span class="label">INTERNAL REFERENCE</span>
+                <span class="value">L-${new Date().getFullYear()}</span>
+              </div>
+            </div>
+          `
+        }),
       });
     }
   } catch (error) {
