@@ -96,7 +96,7 @@ export const emitSubscriptionExpiringSoon = ({
       `,
       actionBtn: {
         text: "تجديد الاشتراك الآن",
-        url: "#"
+        url: "https://app.helperlawyer.online/Login"
       }
     }),
   });
@@ -125,7 +125,7 @@ export const emitSubscriptionExpired = ({
       `,
       actionBtn: {
         text: "تجديد الاشتراك",
-        url: "#"
+        url: "https://app.helperlawyer.online/Login"
       }
     }),
   });
@@ -162,7 +162,7 @@ export const emitItemAssigned = async ({
           `,
           actionBtn: {
             text: "عرض التفاصيل",
-            url: "#"
+            url: "https://app.helperlawyer.online/Login"
           }
         }),
       });

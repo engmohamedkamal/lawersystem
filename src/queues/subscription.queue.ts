@@ -76,7 +76,7 @@ export const startSubscriptionWorkers = () => {
           `,
           actionBtn: {
             text: "تجديد الاشتراك",
-            url: "#"
+            url: "https://app.helperlawyer.online/Login"
           }
         }),
       });
