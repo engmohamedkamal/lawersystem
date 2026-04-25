@@ -399,17 +399,21 @@ class PayrollService {
       (acc, item) => {
         acc.employeeCount += 1
         acc.totalPayroll += item.netSalary
-        acc.totalDeductions += item.deductions
-        acc.totalBonuses += item.bonuses
-        acc.totalAdvances += item.advances
+        acc.totalBasic += item.basicSalary || 0
+        acc.totalDeductions += item.deductions || 0
+        acc.totalBonuses += item.bonuses || 0
+        acc.totalAdvances += item.advances || 0
+        acc.totalNet += item.netSalary || 0
         return acc
       },
       {
         employeeCount: 0,
         totalPayroll: 0,
+        totalBasic: 0,
         totalDeductions: 0,
         totalBonuses: 0,
         totalAdvances: 0,
+        totalNet: 0,
       }
     )
 
