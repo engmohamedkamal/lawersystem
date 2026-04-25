@@ -57,6 +57,8 @@ The system follows a **Multi-Tenant SaaS** architecture with:
 
 - **Tenant Isolation Middleware** — Each request is scoped to the authenticated user's `officeId`. The tenant middleware verifies subscription status, checks expiry dates, and auto-suspends expired offices.
 - **Feature Flags per Plan** — Subscription plans define granular feature limits (max users, max cases, storage, etc.) enforced at runtime via `assertFeatureLimitNotReached()`.
+- **Background Jobs & Queues (BullMQ)** — Offloads critical, failure-prone operations (like DB backups, email notifications, and auto-renewals) to persistent Redis-backed queues with exponential backoff and retry logic.
+- **Real-Time Storage Tracking** — Atomic counters combined with self-healing cron jobs monitor per-tenant storage usage accurately without performance degradation.
 - **Layered Architecture** — `Controller → Service → Model` pattern with centralized validation (Zod), authentication (JWT), and authorization (RBAC) middleware.
 
 ---
@@ -484,17 +486,25 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 
 ---
 
-### 19. Cron Jobs & Schedulers ⏰
+### 19. Cron Jobs & Background Queues ⏰
 
+**Scheduled Jobs (node-cron):**
 | Schedule | Job | Description |
 |---|---|---|
-| Every 5 minutes | `completeExpiredAppointments` | Auto-complete appointments whose slot has ended |
+| Every 5 minutes | `completeAppointments.job` | Auto-complete appointments whose slot has ended |
 | Every hour | `sessionReminderJob` | Send notifications for upcoming court sessions |
 | Daily at midnight | `overdueInvoiceUpdate` | Mark invoices past due date as `متأخرة` |
+| Daily at 02:00 AM | `syncStorage.cron` | Self-healing script to recalculate and sync actual tenant storage |
+| Daily at 01:00 AM | `expirePlanOffers` | Auto-remove expired discount offers from subscription plans |
 
-**Cron Safety:**
-- Mutex flags prevent overlapping runs
-- MongoDB connection check before each run
+**Background Queues (BullMQ + Redis):**
+- **`email.queue`**: Robust email delivery with retry logic for welcome emails, invoices, etc.
+- **`subscription.queue`**: Handles plan auto-renewals securely in the background.
+- **`backup.queue`**: Automated database backups with a rolling **7-day retention policy**. Uploads dumps to secure storage targets.
+
+**System Reliability:**
+- Mutex flags prevent overlapping cron runs
+- BullMQ features exponential backoff for external API/DB failures
 - Graceful handling of connection errors (skip, don't crash)
 
 ---
@@ -558,7 +568,7 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 
 ---
 
-### 21. My Subscription 💳
+### 21. My Subscription & Payments 💳
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
@@ -568,9 +578,11 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 | `/my-subscription/renew` | POST | Admin | Initiate renewal/upgrade (Integrated with Paymob Wallets & Cards) |
 | `/my-subscription/payments` | GET | Admin | Get historical payments and invoices |
 | `/my-subscription/card` | DELETE | Admin | Remove saved credit card & auto-renewal |
+| `/my-subscription/webhook` | POST | Public | Paymob Webhook endpoint (CSRF-exempt) for async payment processing |
 
 **Implementation Details:**
 - **Paymob Integration**: Full support for credit cards (iframe) and E-Wallets (redirect) using `walletPhone` identifiers.
+- **Webhook Handlers**: Secure asynchronous webhook processing for Paymob transactions to finalize subscription updates reliably.
 - **Dynamic Pricing**: Applies active plan offers and coupon discounts mathematically.
 - **History Tracking**: Fetches all previous subscription transactions with status and saved amounts.
 
@@ -623,6 +635,8 @@ Net = Base Salary + Bonuses − Deductions − Advances Due This Month
 | **Validation** | Zod (declarative schema validation) |
 | **Auth** | JWT (access + refresh tokens) + bcryptjs |
 | **Real-time** | Socket.IO |
+| **Background Queues** | BullMQ + Redis (Job Queues & Backups) |
+| **Payment Gateway** | Paymob (Cards, Wallets & Webhooks) |
 | **File Storage** | Cloudinary (images + raw files) |
 | **PDF Generation** | Custom HTML→PDF engine (RTL Arabic support) |
 | **Excel Export** | ExcelJS (styled multi-sheet workbooks) |
@@ -706,7 +720,16 @@ src/
 │   ├── scheduler.ts           # Cron job orchestrator
 │   ├── Session.cron.ts        # Session reminders
 │   ├── Subscription.cron.ts   # Subscription expiry
+│   ├── syncStorage.cron.ts    # Storage quota self-healing
+│   ├── expirePlanOffers.ts    # Plan offers expiration
 │   └── completeAppointments.job.ts
+│
+├── queues/                    # BullMQ Background Queues
+│   ├── index.ts               # Queue orchestrator & workers
+│   ├── redisConnection.ts     # Redis client connection
+│   ├── email.queue.ts         # Email notification queue
+│   ├── backup.queue.ts        # Automated DB backups
+│   └── subscription.queue.ts  # Background renewals
 │
 ├── seeds/
 │   └── documentTemplates.seed.ts
@@ -751,5 +774,5 @@ src/
     npm run start:dev 
     ```
 
-4. **Server starts on** `http://localhost:3000`
+4. **Server starts on** `http://localhost:5000`
 
