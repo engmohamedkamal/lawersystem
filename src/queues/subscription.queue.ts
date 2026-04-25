@@ -5,6 +5,7 @@ import PaymentModel from "../DB/model/SaaSModels/Payment.model";
 import PlanModel from "../DB/model/SaaSModels/Plan.model";
 import { chargeWithToken } from "../moudles/SASS/payment/Paymob.service";
 import { emailQueue } from "./email.queue";
+import { buildEmailTemplate } from "../utils/emailTemplate";
 
 export interface ExpireSubscriptionJobData {
   officeId: string;
@@ -60,13 +61,12 @@ export const startSubscriptionWorkers = () => {
         to: email,
         subject: "تنبيه بانتهاء الاشتراك",
         fromName: officeName,
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
-            <h2>مرحبًا ${officeName}</h2>
-            <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
-            <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>
-          </div>
-        `,
+        html: buildEmailTemplate(
+          "تنبيه بانتهاء الاشتراك",
+          `<p>مرحبًا <strong>${officeName}</strong>،</p>
+           <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
+           <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>`
+        ),
       });
 
       console.log(`[EXPIRE WORKER] ✅ ${officeName} marked expired`);

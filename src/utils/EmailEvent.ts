@@ -1,5 +1,6 @@
 import { emailQueue } from "../queues/email.queue";
 import UserModel from "../DB/model/user.model";
+import { buildEmailTemplate } from "./emailTemplate";
 
 // ─── Event Name Constants (kept for backward compat) ───
 export const EmailEvents = {
@@ -77,14 +78,13 @@ export const emitSubscriptionExpiringSoon = ({
     to: email,
     subject: "تنبيه بقرب انتهاء الاشتراك",
     fromName: officeName,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
-        <h2>مرحبًا ${officeName}</h2>
-        <p>نود تذكيركم أن اشتراككم سينتهي خلال <strong>${daysLeft}</strong> يوم.</p>
-        <p><strong>تاريخ الانتهاء:</strong> ${new Date(endDate).toLocaleDateString("ar-EG")}</p>
-        <p>يرجى التجديد قبل انتهاء الاشتراك لتجنب توقف الخدمة.</p>
-      </div>
-    `,
+    html: buildEmailTemplate(
+      "تنبيه بقرب انتهاء الاشتراك",
+      `<p>مرحبًا <strong>${officeName}</strong>،</p>
+       <p>نود تذكيركم بأن اشتراككم سينتهي خلال <span class="danger">${daysLeft}</span> يوم.</p>
+       <p><strong>تاريخ الانتهاء:</strong> ${new Date(endDate).toLocaleDateString("ar-EG")}</p>
+       <p>يرجى التجديد قبل انتهاء الاشتراك لتجنب توقف الخدمة.</p>`
+    ),
   });
 };
 
@@ -96,13 +96,12 @@ export const emitSubscriptionExpired = ({
     to: email,
     subject: "تنبيه بانتهاء الاشتراك",
     fromName: officeName,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
-        <h2>مرحبًا ${officeName}</h2>
-        <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
-        <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>
-      </div>
-    `,
+    html: buildEmailTemplate(
+      "تنبيه بانتهاء الاشتراك",
+      `<p>مرحبًا <strong>${officeName}</strong>،</p>
+       <p>نود إبلاغكم بأن اشتراككم قد انتهى اليوم.</p>
+       <p>يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.</p>`
+    ),
   });
 };
 
@@ -122,15 +121,13 @@ export const emitItemAssigned = async ({
       await emailQueue.add("item-assigned", {
         to: user.email,
         subject: title,
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.8; direction: rtl;">
-            <h2>${title}</h2>
-            <p>مرحباً ${user.UserName}،</p>
-            <p>${body}</p>
-            <br/>
-            <p>يرجى مراجعة النظام لمزيد من التفاصيل.</p>
-          </div>
-        `,
+        html: buildEmailTemplate(
+          title,
+          `<p>مرحباً <strong>${user.UserName}</strong>،</p>
+           <p>${body}</p>
+           <br/>
+           <p>يرجى مراجعة النظام لمزيد من التفاصيل.</p>`
+        ),
       });
     }
   } catch (error) {
