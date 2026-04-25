@@ -83,21 +83,21 @@ export const emitSubscriptionExpiringSoon = ({
       subtitle: officeName,
       badge: "ALERT",
       bodyHtml: `
-        <div class="info-card">
-          <div class="info-col">
-            <span class="label">📅 تاريخ الانتهاء</span>
-            <span class="value" style="font-size: 16px;">${new Date(endDate).toLocaleDateString("ar-EG")}</span>
-          </div>
-          <div class="info-col info-col-left">
-            <a href="#" class="btn-black">RENEW NOW &rarr;</a>
-          </div>
+        <p>مرحباً <strong>${officeName}</strong>،</p>
+        <p>نتمنى أن تكونوا بأفضل حال.</p>
+        <p>نود تذكيركم بأن اشتراككم في نظام Lexore سينتهي قريباً.</p>
+        
+        <div class="highlight-box">
+          متبقي <strong>${daysLeft}</strong> يوم على نهاية الاشتراك.<br>
+          تاريخ الانتهاء: ${new Date(endDate).toLocaleDateString("ar-EG")}
         </div>
-
-        <div class="quote-box">
-          نود تذكيركم بأن اشتراككم سينتهي خلال <span class="danger">${daysLeft}</span> يوم.
-          يرجى التجديد قبل انتهاء الاشتراك لتجنب توقف الخدمة.
-        </div>
-      `
+        
+        <p>لضمان عدم توقف الخدمة، يرجى المبادرة بتجديد الاشتراك الخاص بكم.</p>
+      `,
+      actionBtn: {
+        text: "تجديد الاشتراك الآن",
+        url: "#"
+      }
     }),
   });
 };
@@ -115,13 +115,18 @@ export const emitSubscriptionExpired = ({
       subtitle: officeName,
       badge: "EXPIRED",
       bodyHtml: `
-        <div class="quote-box">
-          نود إبلاغكم بأن اشتراككم قد انتهى اليوم. يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.
+        <p>مرحباً <strong>${officeName}</strong>،</p>
+        
+        <div class="highlight-box" style="border-color: #ef4444; background-color: #fef2f2; color: #991b1b;">
+          لقد انتهى اشتراككم في النظام اليوم. نعتذر عن أي إزعاج قد يسببه توقف بعض الخدمات.
         </div>
-        <div class="info-card" style="text-align: center;">
-          <a href="#" class="btn-black">RENEW SUBSCRIPTION &rarr;</a>
-        </div>
-      `
+        
+        <p>لإعادة تفعيل كافة الميزات وضمان استمرارية سير العمل بسلاسة، يرجى تجديد الاشتراك في أقرب وقت.</p>
+      `,
+      actionBtn: {
+        text: "تجديد الاشتراك",
+        url: "#"
+      }
     }),
   });
 };
@@ -144,50 +149,21 @@ export const emitItemAssigned = async ({
         subject: title,
         html: buildEmailTemplate({
           title: title,
-          subtitle: "مراجعة المهام الموكلة وإثبات التوافق القانوني.",
-          badge: "HIGH PRIORITY",
-          headerId: `ID: ${user._id.toString().slice(-6).toUpperCase()}`,
+          badge: "NEW ASSIGNMENT",
           bodyHtml: `
-            <div class="grid-2">
-              <div class="grid-col">
-                <span class="label">CLIENT NAME</span>
-                <span class="value">Lexore Client</span>
-              </div>
-              <div class="grid-col">
-                <span class="label">ASSIGNED LAWYER</span>
-                <span class="value">${user.UserName}</span>
-              </div>
+            <p>مرحباً <strong>${user.UserName}</strong>،</p>
+            <p>لقد تم تكليفك بمهمة / قضية جديدة على نظام Lexore تتطلب انتباهك.</p>
+            
+            <div class="highlight-box">
+              ${body}
             </div>
-
-            <div class="info-card">
-              <div class="info-col">
-                <span class="label">📅 FINAL DEADLINE</span>
-                <span class="value" style="font-size: 16px;">يرجى المراجعة فوراً</span>
-              </div>
-              <div class="info-col info-col-left">
-                <a href="#" class="btn-black">OPEN CASE &rarr;</a>
-              </div>
-            </div>
-
-            <div class="quote-box">
-              "${body}"
-            </div>
-
-            <div class="grid-3">
-              <div class="grid-col">
-                <span class="label">STATUS</span>
-                <span class="value"><span class="dot"></span> Pending Review</span>
-              </div>
-              <div class="grid-col">
-                <span class="label">DOCUMENT TYPE</span>
-                <span class="value">Draft v1.0</span>
-              </div>
-              <div class="grid-col">
-                <span class="label">INTERNAL REFERENCE</span>
-                <span class="value">L-${new Date().getFullYear()}</span>
-              </div>
-            </div>
-          `
+            
+            <p>يرجى تسجيل الدخول إلى النظام لمراجعة التفاصيل كاملة واتخاذ الإجراءات اللازمة.</p>
+          `,
+          actionBtn: {
+            text: "عرض التفاصيل",
+            url: "#"
+          }
         }),
       });
     }

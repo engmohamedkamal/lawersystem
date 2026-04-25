@@ -66,13 +66,18 @@ export const startSubscriptionWorkers = () => {
           subtitle: officeName,
           badge: "EXPIRED",
           bodyHtml: `
-            <div class="quote-box">
-              نود إبلاغكم بأن اشتراككم قد انتهى اليوم. يرجى تجديد الاشتراك في أقرب وقت لإعادة تفعيل الخدمة.
+            <p>مرحباً <strong>${officeName}</strong>،</p>
+            
+            <div class="highlight-box" style="border-color: #ef4444; background-color: #fef2f2; color: #991b1b;">
+              لقد انتهى اشتراككم في النظام اليوم. نعتذر عن أي إزعاج قد يسببه توقف بعض الخدمات.
             </div>
-            <div class="info-card" style="text-align: center;">
-              <a href="#" class="btn-black">RENEW SUBSCRIPTION &rarr;</a>
-            </div>
-          `
+            
+            <p>لإعادة تفعيل كافة الميزات وضمان استمرارية سير العمل بسلاسة، يرجى تجديد الاشتراك في أقرب وقت.</p>
+          `,
+          actionBtn: {
+            text: "تجديد الاشتراك",
+            url: "#"
+          }
         }),
       });
 
