@@ -87,7 +87,6 @@ class SubscriptionService {
 
         return res.status(200).json({ message: "success", plans: formattedPlans })
     }
-
     //  تسجيل مكتب جديد 
     // NOTE: بيانات المكتب (الاسم، الشعار، العنوان) بتتحط من Settings بعد الدخول
     // هنا بس بنعمل subdomain + admin user + رابط دفع
