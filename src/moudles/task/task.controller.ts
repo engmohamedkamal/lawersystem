@@ -11,20 +11,35 @@ import { tenantMiddleware } from "../../middleware/tenant";
 
 const taskRouter = Router();
 
-//Notifications
+// Notifications
 taskRouter.get(
     "/notifications",
     authentication(TokenType.access),
     TS.getMyNotifications
 )
- 
+
 taskRouter.patch(
     "/notifications/read",
     authentication(TokenType.access),
     TS.markNotificationsRead
 )
 
-//CRUD
+// List all tasks
+taskRouter.get(
+    "/",
+    authentication(TokenType.access),
+    TS.getTasks
+)
+
+// List tasks by lawyer
+taskRouter.get(
+    "/lawyer/:userId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    TS.getTasksByLawyer
+)
+
+// Create task
 taskRouter.post(
     "/",
     authentication(TokenType.access),
@@ -36,34 +51,53 @@ taskRouter.post(
 )
 
 
-taskRouter.get(
-    "/lawyer/:userId",
+// Comments
+taskRouter.post(
+    "/:taskId/comments",
     authentication(TokenType.access),
-    authorization(Role.ADMIN, Role.STAFF),
-    TS.getTasksByLawyer
+    tenantMiddleware,
+    validation(TV.addTaskCommentSchema),
+    TS.addTaskComment
 )
 
 taskRouter.get(
-    "/:taskId",
+    "/:taskId/comments",
     authentication(TokenType.access),
-    TS.getTaskById
+    TS.getTaskComments
 )
 
-taskRouter.get(
-    "/",
-    authentication(TokenType.access),
-    TS.getTasks
-)
- 
-taskRouter.patch(
-    "/:taskId",
+// Subtasks
+taskRouter.post(
+    "/:taskId/subtasks",
     authentication(TokenType.access),
     authorization(Role.ADMIN, Role.STAFF),
     tenantMiddleware,
-    validation(TV.updateTaskSchema),
-    TS.updateTask
+    validation(TV.addSubtaskSchema),
+    TS.addSubtask
 )
- 
+
+taskRouter.patch(
+    "/:taskId/subtasks/:subtaskId",
+    authentication(TokenType.access),
+    tenantMiddleware,
+    validation(TV.updateSubtaskSchema),
+    TS.updateSubtask
+)
+
+taskRouter.delete(
+    "/:taskId/subtasks/:subtaskId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
+    TS.deleteSubtask
+)
+
+taskRouter.get(
+    "/:taskId/activity",
+    authentication(TokenType.access),
+    TS.getTaskActivityLog
+)
+
 taskRouter.patch(
     "/:taskId/status",
     authentication(TokenType.access),
@@ -73,6 +107,21 @@ taskRouter.patch(
 )
 
 
+taskRouter.get(
+    "/:taskId",
+    authentication(TokenType.access),
+    TS.getTaskById
+)
+
+taskRouter.patch(
+    "/:taskId",
+    authentication(TokenType.access),
+    authorization(Role.ADMIN, Role.STAFF),
+    tenantMiddleware,
+    validation(TV.updateTaskSchema),
+    TS.updateTask
+)
+
 taskRouter.delete(
     "/:taskId",
     authentication(TokenType.access),
@@ -80,8 +129,5 @@ taskRouter.delete(
     tenantMiddleware,
     TS.deleteTask
 )
-
-
-
 
 export default taskRouter;

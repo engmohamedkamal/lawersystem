@@ -22,7 +22,7 @@ class usersService {
                  
           const office = await OfficeModel.findById(officeId);
          if (!office) {
-            throw new AppError("office not found", 404);
+            throw new AppError("لم يتم العثور على المكتب", 404);
          }
 
          const usersCount = await UserModel.countDocuments({ officeId: officeId });
@@ -33,7 +33,7 @@ class usersService {
          
 
          if (await UserModel.findOne({ email })) {
-           throw new AppError("email already exist", 409);
+           throw new AppError("هذا البريد الإلكتروني مستخدم بالفعل", 409);
          }
 
          const hash = await HASH(password);
@@ -72,7 +72,7 @@ class usersService {
 
             await user.save();
 
-            return res.status(201).json({ message: "done, user add success", user });
+            return res.status(201).json({ message: "تم إضافة المستخدم بنجاح", user });
         };
 
     getUsers = async (req: Request, res: Response, next: NextFunction) => {

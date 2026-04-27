@@ -12,8 +12,27 @@ import { assertFeatureEnabled } from "../../helpers/planFeature.helper";
 import { checkStorageAvailable, reserveStorage, releaseStorage } from "../../helpers/storage.helper";
 import { PLAN_FEATURES } from "../SASS/constants/planFeatures";
 import OfficeModel from "../../DB/model/SaaSModels/Office.model";
+import TaskCommentModel from "../../DB/model/taskComment.model";
+import ActivityLogModel, { ActivityAction } from "../../DB/model/activityLog.model";
+
 class taskService {
     constructor() { }
+
+    private logActivity = async (params: {
+        officeId: any;
+        userId: any;
+        entityType: "Task" | "LegalCase" | "Client" | "Appointment";
+        entityId: any;
+        action: ActivityAction;
+        details?: any;
+    }) => {
+        try {
+            await ActivityLogModel.create(params);
+        } catch (error) {
+            console.error("Failed to log activity:", error);
+        }
+    };
+
 
     createTask = async (req: Request, res: Response, next: NextFunction) => {
         const { title, description, assignedTo, client, legalCase, priority, dueDate } = req.body
@@ -89,6 +108,16 @@ class taskService {
               throw err;
             }
         }
+
+        this.logActivity({
+            officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: task._id,
+            action: "created",
+            details: { title }
+        });
+
 
         const populated = await TaskModel.findById(task._id)
             .populate("assignedTo", "UserName email ProfilePhoto")
@@ -255,6 +284,15 @@ class taskService {
             taskId: taskId,
         })
 
+        this.logActivity({
+            officeId: req.user?.officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: task._id,
+            action: "updated",
+            details: data
+        });
+
         return res.status(200).json({ message: "Task updated successfully", task: updated })
     }
 
@@ -287,6 +325,15 @@ class taskService {
             })
         }
 
+        this.logActivity({
+            officeId: req.user?.officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: task._id,
+            action: "status_changed",
+            details: { from: task.status, to: status }
+        });
+
         return res.status(200).json({ message: "Status updated successfully", task: updated })
     }
 
@@ -297,6 +344,15 @@ class taskService {
         if (!task) throw new AppError("المهمة غير موجودة", 404)
 
         await TaskModel.findOneAndUpdate({ _id: taskId, officeId: req.user?.officeId }, { isDeleted: true })
+
+        this.logActivity({
+            officeId: req.user?.officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: task._id,
+            action: "deleted"
+        });
+
 
         return res.status(200).json({ message: "Task deleted successfully" })
     }
@@ -324,6 +380,182 @@ class taskService {
 
         return res.status(200).json({ message: "Notifications marked as read" })
     }
+
+
+    addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId } = req.params;
+        const { content, parentCommentId } = req.body;
+        const officeId = req.user?.officeId;
+
+        const filter: any = { _id: taskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+        const task = await TaskModel.findOne(filter);
+        if (!task) throw new AppError("المهمة غير موجودة أو غير مصرح لك", 404);
+
+        if(parentCommentId){
+            const parent = await TaskCommentModel.findOne({
+                _id: parentCommentId,
+                taskId: taskId
+            })
+            if(!parent) throw new AppError("التعليق غير موجود", 404);
+        }
+
+        
+
+        const attachments: any[] = [];
+        
+        const comment = await TaskCommentModel.create({
+            taskId,
+            userId: req.user?.id,
+            content,
+            parentCommentId: parentCommentId || undefined,
+            attachments
+        });
+
+        const populated = await TaskCommentModel.findById(comment._id).populate("userId", "UserName ProfilePhoto");
+
+        this.logActivity({
+            officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: taskId as any,
+            action: "comment_added",
+            details: { commentId: comment._id }
+        });
+
+        return res.status(201).json({ message: "تمت إضافة التعليق بنجاح", comment: populated });
+    }
+
+    getTaskComments = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId } = req.params;
+        const officeId = req.user?.officeId;
+
+        const filter: any = { _id: taskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+        const task = await TaskModel.findOne(filter);
+        if (!task) throw new AppError("المهمة غير موجودة أو غير مصرح لك", 404);
+
+        const comments = await TaskCommentModel.find({ taskId })
+            .populate("userId", "UserName ProfilePhoto jobTitle")
+            .sort({ createdAt: 1 });
+
+        return res.status(200).json({ message: "success", comments });
+    }
+
+    addSubtask = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId } = req.params;
+        const { title } = req.body;
+        const officeId = req.user?.officeId;
+
+        const filter: any = { _id: taskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+
+        const task = await TaskModel.findOneAndUpdate(
+            filter,
+            { $push: { subtasks: { title, isCompleted: false } } },
+            { new: true }
+        );
+
+        if (!task) throw new AppError("المهمة غير موجودة أو غير مصرح لك", 404);
+
+        this.logActivity({
+            officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: taskId as any,
+            action: "subtask_added",
+            details: { title }
+        });
+
+        return res.status(200).json({ message: "Subtask added", subtasks: task.subtasks });
+    }
+
+    updateSubtask = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId, subtaskId } = req.params;
+        const { title, isCompleted } = req.body;
+        const officeId = req.user?.officeId;
+
+        const update: any = {};
+
+        if (req.user?.role === Role.LAWYER) {
+            if (title !== undefined) {
+                throw new AppError("المحامي غير مصرح له بتعديل عنوان الخطوة", 403);
+            }
+        } else {
+            if (title !== undefined) update["subtasks.$.title"] = title;
+        }
+
+        if (isCompleted !== undefined) update["subtasks.$.isCompleted"] = isCompleted;
+
+        const filter: any = { _id: taskId, "subtasks._id": subtaskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+
+        const task = await TaskModel.findOneAndUpdate(
+            filter,
+            { $set: update },
+            { new: true }
+        );
+
+        if (!task) throw new AppError("المهمة أو الخطوة غير موجودة أو غير مصرح لك", 404);
+
+        this.logActivity({
+            officeId,
+            userId: req.user?.id,
+            entityType: "Task",
+            entityId: taskId as any,
+            action: "subtask_updated",
+            details: { subtaskId, isCompleted }
+        });
+
+        return res.status(200).json({ message: "Subtask updated", subtasks: task.subtasks });
+    }
+
+    deleteSubtask = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId, subtaskId } = req.params;
+        const officeId = req.user?.officeId;
+
+        const filter: any = { _id: taskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+
+        const task = await TaskModel.findOneAndUpdate(
+            filter,
+            { $pull: { subtasks: { _id: subtaskId } } },
+            { new: true }
+        );
+
+        if (!task) throw new AppError("المهمة غير موجودة أو غير مصرح لك", 404);
+
+        return res.status(200).json({ message: "Subtask deleted", subtasks: task.subtasks });
+    }
+
+    getTaskActivityLog = async (req: Request, res: Response, next: NextFunction) => {
+        const { taskId } = req.params;
+        const officeId = req.user?.officeId;
+
+        const filter: any = { _id: taskId, isDeleted: false, officeId };
+        if (req.user?.role === Role.LAWYER) {
+            filter.assignedTo = req.user?.id;
+        }
+        const task = await TaskModel.findOne(filter);
+        if (!task) throw new AppError("المهمة غير موجودة أو غير مصرح لك", 404);
+
+        const logs = await ActivityLogModel.find({ entityId: taskId, officeId })
+            .populate("userId", "UserName ProfilePhoto")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({ message: "success", logs });
+    }
+
 
 
 }

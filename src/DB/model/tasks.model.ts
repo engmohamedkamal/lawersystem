@@ -19,6 +19,7 @@ export interface ITask extends mongoose.Document {
     priority:    TaskPriority
     dueDate?:    Date
     attachments: { url: string; publicId: string; name: string; sizeBytes: number }[]
+    subtasks:    { title: string; isCompleted: boolean; _id?: Types.ObjectId }[]
     isDeleted:   boolean
     createdAt:   Date
     updatedAt:   Date
@@ -42,6 +43,13 @@ const TaskSchema = new mongoose.Schema<ITask>(
                 publicId:  { type: String, required: true },
                 name:      { type: String, required: true },
                 sizeBytes: { type: Number, default: 0 },
+            }],
+            default: [],
+        },
+        subtasks: {
+            type: [{
+                title:       { type: String, required: true, trim: true },
+                isCompleted: { type: Boolean, default: false },
             }],
             default: [],
         },

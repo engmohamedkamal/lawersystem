@@ -479,97 +479,97 @@ class SuperAdminService {
     }
 
     //DASHBOARD
-    dashboard = async (req: Request , res: Response , next: NextFunction)=>{
+    dashboard = async (req: Request, res: Response, next: NextFunction) => {
         const now = new Date()
         const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
         const [totalOffices,
-        activeOffices,
-        suspendedOffices,
-        expiredOffices,
-        expiringSoon,
-        totalUsers,
-        totalRevenue,
-        revenueThisMonth,
-        recentOffices,
-    ] = await Promise.all([
-        OfficeModel.countDocuments(),
-        OfficeModel.countDocuments({ "subscription.status": "active" }),
-        OfficeModel.countDocuments({ "subscription.status": "suspended" }),
-        OfficeModel.countDocuments({ "subscription.status": "expired" }),
-        OfficeModel.find({
-            "subscription.status": "active",
-            "subscription.endDate": { $gte: now, $lte: in7days },
-        }).select("name email subdomain subscription.endDate subscription.planSlug"),
-        UserModel.countDocuments({ isDeleted: false }),
-        PaymentModel.aggregate([
-            { $match: { status: "success" } },
-            { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]).then(r => r[0]?.total ?? 0),
-        PaymentModel.aggregate([
-            {
-                $match: {
-                    status: "success",
-                    createdAt: {
-                        $gte: new Date(now.getFullYear(), now.getMonth(), 1),
-                        $lte: now,
-                    },
-                },
-            },
-            { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]).then(r => r[0]?.total ?? 0),
-        OfficeModel.find()
-            .populate("subscription.planId", "name slug")
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .select("name email subdomain subscription isActive createdAt")
-            .lean(),
-        PaymentModel.find({ status: "success" })
-            .populate("office", "name subdomain createdAt")
-            .populate("plan", "name")
-            .sort({ paidAt: -1 })
-            .limit(5)
-            .select("amount originalAmount billingInterval paidAt createdAt planSnapshot.name paymentMethod")
-            .lean(),
-    ])
-
-
-    const formattedExpiringSoon = expiringSoon.map((o: any) => ({
-        id: o._id,
-        name: o.name,
-        email: o.email,
-        subdomain: o.subdomain,
-        planSlug: o.subscription?.planSlug,
-        endDate: o.subscription?.endDate
-    }));
-
-    const formattedRecentOffices = recentOffices.map((o: any) => ({
-        id: o._id,
-        name: o.name,
-        email: o.email,
-        subdomain: o.subdomain,
-        planName: o.subscription?.planId?.name || "بدون خطة",
-        amountPaid: o.subscription?.lastPaymentAmount || 0,
-        status: o.subscription?.status,
-        isActive: o.isActive,
-        joinedAt: o.createdAt
-    }));
-
-    
-    return res.status(200).json({
-        message: "success",
-        stats: {
-            totalOffices,
             activeOffices,
             suspendedOffices,
             expiredOffices,
+            expiringSoon,
             totalUsers,
             totalRevenue,
             revenueThisMonth,
-        },
-        expiringSoon: formattedExpiringSoon,
-        recentOffices: formattedRecentOffices,
-    })
+            recentOffices,
+        ] = await Promise.all([
+            OfficeModel.countDocuments(),
+            OfficeModel.countDocuments({ "subscription.status": "active" }),
+            OfficeModel.countDocuments({ "subscription.status": "suspended" }),
+            OfficeModel.countDocuments({ "subscription.status": "expired" }),
+            OfficeModel.find({
+                "subscription.status": "active",
+                "subscription.endDate": { $gte: now, $lte: in7days },
+            }).select("name email subdomain subscription.endDate subscription.planSlug"),
+            UserModel.countDocuments({ isDeleted: false }),
+            PaymentModel.aggregate([
+                { $match: { status: "success" } },
+                { $group: { _id: null, total: { $sum: "$amount" } } },
+            ]).then(r => r[0]?.total ?? 0),
+            PaymentModel.aggregate([
+                {
+                    $match: {
+                        status: "success",
+                        createdAt: {
+                            $gte: new Date(now.getFullYear(), now.getMonth(), 1),
+                            $lte: now,
+                        },
+                    },
+                },
+                { $group: { _id: null, total: { $sum: "$amount" } } },
+            ]).then(r => r[0]?.total ?? 0),
+            OfficeModel.find()
+                .populate("subscription.planId", "name slug")
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .select("name email subdomain subscription isActive createdAt")
+                .lean(),
+            PaymentModel.find({ status: "success" })
+                .populate("office", "name subdomain createdAt")
+                .populate("plan", "name")
+                .sort({ paidAt: -1 })
+                .limit(5)
+                .select("amount originalAmount billingInterval paidAt createdAt planSnapshot.name paymentMethod")
+                .lean(),
+        ])
+
+
+        const formattedExpiringSoon = expiringSoon.map((o: any) => ({
+            id: o._id,
+            name: o.name,
+            email: o.email,
+            subdomain: o.subdomain,
+            planSlug: o.subscription?.planSlug,
+            endDate: o.subscription?.endDate
+        }));
+
+        const formattedRecentOffices = recentOffices.map((o: any) => ({
+            id: o._id,
+            name: o.name,
+            email: o.email,
+            subdomain: o.subdomain,
+            planName: o.subscription?.planId?.name || "بدون خطة",
+            amountPaid: o.subscription?.lastPaymentAmount || 0,
+            status: o.subscription?.status,
+            isActive: o.isActive,
+            joinedAt: o.createdAt
+        }));
+
+
+        return res.status(200).json({
+            message: "success",
+            stats: {
+                totalOffices,
+                activeOffices,
+                suspendedOffices,
+                expiredOffices,
+                totalUsers,
+                totalRevenue,
+                revenueThisMonth,
+            },
+            expiringSoon: formattedExpiringSoon,
+            recentOffices: formattedRecentOffices,
+        })
 
     }
 
@@ -630,13 +630,13 @@ class SuperAdminService {
                 : 0
             if (diffPercent > 0) {
                 insight = `تتفوق ${topPlan.name} على ${secondPlan.name} في عدد الاشتراكات بنسبة ${diffPercent}%`
-           } else {
+            } else {
                 insight = `${topPlan.name} هي الباقة الأكثر طلباً`
-           }
+            }
         } else if (topPlan) {
-               insight = `${topPlan.name} هي الباقة الأكثر طلباً`
+            insight = `${topPlan.name} هي الباقة الأكثر طلباً`
         }
-        
+
 
         return res.status(200).json({
             message: "success",
@@ -652,15 +652,15 @@ class SuperAdminService {
         const { officeId, status, page = "1", limit = "20" } = req.query
         const filter: any = {}
         if (officeId) filter.office = officeId
-        if (status)   filter.status = status
- 
-        const pageNum  = Math.max(Number(page), 1)
+        if (status) filter.status = status
+
+        const pageNum = Math.max(Number(page), 1)
         const limitNum = Math.min(Math.max(Number(limit), 1), 100)
- 
+
         const [payments, total] = await Promise.all([
             PaymentModel.find(filter)
                 .populate("office", "name email subdomain")
-                .populate("plan",   "name slug")
+                .populate("plan", "name slug")
                 .populate("coupon", "code type value")
                 .sort({ createdAt: -1 })
                 .skip((pageNum - 1) * limitNum)
@@ -669,7 +669,7 @@ class SuperAdminService {
                 .lean(),
             PaymentModel.countDocuments(filter),
         ])
- 
+
         const formattedPayments = payments.map((p: any) => ({
             id: p._id,
             officeName: p.office?.name || "مكتب محذوف",
@@ -693,19 +693,19 @@ class SuperAdminService {
 
     getAllOffices = async (req: Request, res: Response, next: NextFunction) => {
         const { status, planSlug, search, page = "1", limit = "20" } = req.query
- 
+
         const filter: any = {}
-        if (status)   filter["subscription.status"]   = status
+        if (status) filter["subscription.status"] = status
         if (planSlug) filter["subscription.planSlug"] = planSlug
-        if (search)   filter.$or = [
-            { name:      { $regex: search, $options: "i" } },
-            { email:     { $regex: search, $options: "i" } },
+        if (search) filter.$or = [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
             { subdomain: { $regex: search, $options: "i" } },
         ]
- 
-        const pageNum  = Math.max(Number(page), 1)
+
+        const pageNum = Math.max(Number(page), 1)
         const limitNum = Math.min(Math.max(Number(limit), 1), 100)
- 
+
         const [offices, total] = await Promise.all([
             OfficeModel.find(filter)
                 .populate("subscription.planId", "name slug monthlyPrice yearlyPrice features")
@@ -732,7 +732,7 @@ class SuperAdminService {
                 });
             }
         });
- 
+
         return res.status(200).json({
             message: "success",
             total, page: pageNum, totalPages: Math.ceil(total / limitNum),
@@ -742,7 +742,7 @@ class SuperAdminService {
 
     getOfficeById = async (req: Request, res: Response, next: NextFunction) => {
         const { officeId } = req.params
- 
+
         const [office, usersCount, paymentsCount, totalPaid] = await Promise.all([
             OfficeModel.findById(officeId)
                 .populate("subscription.planId", "name slug monthlyPrice yearlyPrice features")
@@ -754,7 +754,7 @@ class SuperAdminService {
                 { $group: { _id: null, total: { $sum: "$amount" } } },
             ]).then(r => r[0]?.total ?? 0),
         ])
- 
+
         if (!office) throw new AppError("office not found", 404)
 
         if (office.features && (office.features as any)[PLAN_FEATURES.STORAGE_MAX]) {
@@ -770,26 +770,26 @@ class SuperAdminService {
                 return f;
             });
         }
- 
+
         return res.status(200).json({ message: "success", office, usersCount, paymentsCount, totalPaid })
     }
 
     updateOfficeSubscription = async (req: Request, res: Response, next: NextFunction) => {
         const { officeId } = req.params
         const { planSlug, status, endDate, billingInterval } = req.body
- 
+
         const office = await OfficeModel.findById(officeId)
         if (!office) throw new AppError("office not found", 404)
- 
+
         if (planSlug) {
             const plan = await PlanModel.findOne({ slug: planSlug, isActive: true })
             if (!plan) throw new AppError("plan not found", 404)
-            office.subscription.planId   = plan._id
+            office.subscription.planId = plan._id
             office.subscription.planSlug = plan.slug
             office.features = buildFeaturesFromPlan(plan)
         }
- 
-        const wasActive = office.isActive
+
+        const wasSubscriptionActive = office.subscription.status === "active"
 
         if (status) {
             office.subscription.status = status
@@ -797,31 +797,31 @@ class SuperAdminService {
         }
         if (endDate) {
             office.subscription.endDate = new Date(endDate)
-        } else if (status === "active" && !wasActive) {
+        } else if (status === "active" && !wasSubscriptionActive) {
             const interval = billingInterval || office.subscription.billingInterval
             const now = new Date()
-            
+
             const planId = office.subscription.planId
             const plan = await PlanModel.findById(planId)
-            
+
             if (plan) {
                 if (interval === "yearly") {
                     now.setFullYear(now.getFullYear() + 1)
                 } else {
                     now.setMonth(now.getMonth() + 1)
                 }
-                
+
                 const amount = interval === "yearly" ? plan.yearlyPrice : plan.monthlyPrice
-                
-                const existingPayment = await PaymentModel.findOne({ 
-                    office: office._id, 
-                    status: "pending" 
+
+                const existingPayment = await PaymentModel.findOne({
+                    office: office._id,
+                    status: "pending"
                 }).sort({ createdAt: -1 })
 
                 if (existingPayment) {
                     existingPayment.status = "success"
                     existingPayment.paidAt = new Date()
-                    existingPayment.amount = amount       
+                    existingPayment.amount = amount
                     existingPayment.plan = plan._id
                     existingPayment.billingInterval = interval as any
                     existingPayment.planSnapshot = {
@@ -857,9 +857,9 @@ class SuperAdminService {
         }
 
         if (billingInterval) office.subscription.billingInterval = billingInterval
- 
+
         await office.save()
- 
+
         return res.status(200).json({ message: "Subscription updated successfully", office })
     }
 
@@ -883,28 +883,44 @@ class SuperAdminService {
 
     toggleOfficeStatus = async (req: Request, res: Response, next: NextFunction) => {
         const { officeId } = req.params
- 
+
         const office = await OfficeModel.findById(officeId)
         if (!office) throw new AppError("office not found", 404)
- 
+
         const newStatus = office.isActive ? "suspended" : "active"
         office.subscription.status = newStatus as any
-        office.isActive            = !office.isActive
+        office.isActive = !office.isActive
+
+        if (office.isActive) {
+            const now = new Date()
+            if (!office.subscription.endDate || office.subscription.endDate <= now) {
+                const interval = office.subscription.billingInterval || "monthly"
+                const futureDate = new Date()
+                if (interval === "yearly") {
+                    futureDate.setFullYear(futureDate.getFullYear() + 1)
+                } else {
+                    futureDate.setMonth(futureDate.getMonth() + 1)
+                }
+                office.subscription.startDate = new Date()
+                office.subscription.endDate = futureDate
+            }
+        }
+
         await office.save()
- 
+
         return res.status(200).json({
-            message:  `Office ${office.isActive ? "activated" : "suspended"} successfully`,
+            message: `Office ${office.isActive ? "activated" : "suspended"} successfully`,
             isActive: office.isActive,
         })
     }
 
     getRevenueChart = async (req: Request, res: Response, next: NextFunction) => {
         const year = Number(req.query.year) || new Date().getFullYear()
- 
+
         const data = await PaymentModel.aggregate([
             {
                 $match: {
-                    status:    "success",
+                    status: "success",
                     createdAt: { $gte: new Date(year, 0, 1), $lte: new Date(year, 11, 31, 23, 59, 59) }
                 }
             },
@@ -913,18 +929,18 @@ class SuperAdminService {
                 $group: {
                     _id: {
                         month: { $month: "$createdAt" },
-                        plan:  { $arrayElemAt: ["$planData.name", 0] },
+                        plan: { $arrayElemAt: ["$planData.name", 0] },
                     },
-                    revenue:       { $sum: "$amount" },
+                    revenue: { $sum: "$amount" },
                     subscriptions: { $sum: 1 },
                 }
             },
             { $sort: { "_id.month": 1 } }
         ])
- 
+
         const months = Array.from({ length: 12 }, (_, i) => i + 1)
-        const plans  = [...new Set(data.map((d: any) => d._id.plan).filter(Boolean))]
- 
+        const plans = [...new Set(data.map((d: any) => d._id.plan).filter(Boolean))]
+
         const chart = months.map(month => {
             const monthData: any = { month }
             plans.forEach(plan => {
@@ -933,36 +949,36 @@ class SuperAdminService {
             })
             return monthData
         })
- 
+
         return res.status(200).json({ message: "success", year, plans, chart })
     }
 
     getRevenueByPlan = async (req: Request, res: Response, next: NextFunction) => {
         const { planId } = req.params
- 
+
         const plan = await PlanModel.findById(planId)
         if (!plan) throw new AppError("plan not found", 404)
- 
+
         const data = await PaymentModel.aggregate([
             {
                 $match: {
-                    plan:    new (require("mongoose").Types.ObjectId)(planId),
-                    status:  "success",
+                    plan: new (require("mongoose").Types.ObjectId)(planId),
+                    status: "success",
                 }
             },
             {
                 $group: {
                     _id: {
                         month: { $month: "$createdAt" },
-                        year:  { $year: "$createdAt" },
+                        year: { $year: "$createdAt" },
                     },
-                    revenue:       { $sum: "$amount" },
+                    revenue: { $sum: "$amount" },
                     subscriptions: { $sum: 1 },
                 }
             },
             { $sort: { "_id.year": 1, "_id.month": 1 } }
         ])
- 
+
         return res.status(200).json({ message: "success", plan: plan.name, data })
     }
 

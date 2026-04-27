@@ -50,6 +50,37 @@ export const getTasksSchema = {
     }),
 }
 
+export const addTaskCommentSchema = {
+    params: z.object({
+        taskId: z.string().length(24),
+    }),
+    body: z.object({
+        content: z.string().min(1),
+        parentCommentId: z.string().length(24).optional(),
+    }),
+}
+
+export const addSubtaskSchema = {
+    params: z.object({
+        taskId: z.string().length(24),
+    }),
+    body: z.object({
+        title: z.string().min(1),
+    }),
+}
+
+export const updateSubtaskSchema = {
+    params: z.object({
+        taskId: z.string().length(24),
+        subtaskId: z.string().length(24),
+    }),
+    body: z.object({
+        title: z.string().min(1).optional(),
+        isCompleted: z.boolean().optional(),
+    }),
+}
+
+
 export type CreateTaskType       = z.infer<typeof createTaskSchema.body>
 export type UpdateTaskType       = z.infer<typeof updateTaskSchema.body>
 export type UpdateTaskStatusType = z.infer<typeof updateTaskStatusSchema.body>
