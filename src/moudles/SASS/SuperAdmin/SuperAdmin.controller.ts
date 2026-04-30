@@ -103,6 +103,13 @@ superAdminRouter.post("/setPlanOffer/:planId",
     SS.setPlanOffer
 )
 
+superAdminRouter.put("/updatePlanOffer/:planId",
+    authentication(TokenType.access),
+    isSuperAdmin,
+    validation(SV.updatePlanOfferSchema),
+    SS.updatePlanOffer
+)
+
 superAdminRouter.delete("/removePlanOffer/:planId",
     authentication(TokenType.access),
     isSuperAdmin,

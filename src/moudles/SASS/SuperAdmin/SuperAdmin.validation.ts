@@ -91,6 +91,24 @@ export const setPlanOfferSchema = {
       message: "تاريخ الانتهاء يجب أن يكون في المستقبل",
     }).optional(),
     isActive: z.boolean().optional(),
+    applyTo: z.enum(["monthly", "yearly", "both"]).optional()
+  }),
+};
+
+export const updatePlanOfferSchema = {
+  params: z.object({
+    planId: z.string().regex(objectIdRegex, "معرف الخطة غير صحيح"),
+  }),
+  body: z.object({
+    label: z.string().optional(),
+    discountPercent: z.number().min(0).max(100, "يجب أن تكون نسبة الخصم بين 0 و 100").optional(),
+    validUntil: z.coerce.date().refine((date) => date > new Date(), {
+      message: "تاريخ الانتهاء يجب أن يكون في المستقبل",
+    }).optional().nullable(),
+    isActive: z.boolean().optional(),
+    applyTo: z.enum(["monthly", "yearly", "both"]).optional()
+  }).refine((data) => Object.keys(data).length > 0, {
+    message: "يجب إرسال تحديث واحد على الأقل",
   }),
 };
 
@@ -103,9 +121,10 @@ export const createCouponSchema = {
     value: z.number().positive("قيمة الكوبون يجب أن تكون أكبر من الصفر"),
     maxUses: z.number().int().min(-1).optional(),
     plans: z.array(z.string().regex(objectIdRegex, "معرف الخطة غير صحيح")).optional(),
-    validFrom: z.coerce.date(),
+    validFrom: z.coerce.date().optional(),
     validUntil: z.coerce.date(),
   }).superRefine((data, ctx) => {
+    const fromDate = data.validFrom || new Date();
     if (data.type === "percent" && data.value > 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -113,7 +132,7 @@ export const createCouponSchema = {
         message: "قيمة الخصم المئوي لا يمكن أن تتجاوز 100",
       });
     }
-    if (data.validUntil <= data.validFrom) {
+    if (data.validUntil <= fromDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["validUntil"],

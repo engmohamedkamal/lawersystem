@@ -298,6 +298,70 @@ class SuperAdminService {
         return res.status(200).json({ message: "Plan offer removed", plan })
     }
 
+    updatePlanOffer = async (req: Request, res: Response, next: NextFunction) => {
+        const { planId } = req.params
+        const { label, discountPercent, validUntil, isActive, applyTo } = req.body
+
+        const plan = await PlanModel.findById(planId)
+        if (!plan) throw new AppError("plan not found", 404)
+
+        if (!plan.offer) throw new AppError("plan offer not found", 404)
+
+        if (label !== undefined) plan.offer.label = label
+        if (discountPercent !== undefined) plan.offer.discountPercent = discountPercent
+        if (isActive !== undefined) plan.offer.isActive = isActive
+        if (applyTo !== undefined) plan.offer.applyTo = applyTo
+
+        if (validUntil !== undefined) {
+            if (validUntil === null) {
+                plan.offer.validUntil = undefined
+            } else {
+                const parsedValidUntil = new Date(validUntil)
+                if (isNaN(parsedValidUntil.getTime())) {
+                    throw new AppError("validUntil is invalid", 400)
+                }
+                if (parsedValidUntil.getTime() <= Date.now()) {
+                    throw new AppError("validUntil must be in the future", 400)
+                }
+                plan.offer.validUntil = parsedValidUntil
+            }
+        }
+
+        if (discountPercent !== undefined || applyTo !== undefined) {
+            if (plan.monthlyPrice == null || plan.yearlyPrice == null) {
+                throw new AppError("plan prices not found", 400)
+            }
+
+            const currentDiscountPercent = plan.offer.discountPercent
+            const currentApplyTo = plan.offer.applyTo
+
+            let monthlyPriceAfterDiscount = plan.monthlyPrice
+            let yearlyPriceAfterDiscount = plan.yearlyPrice
+
+            if (currentApplyTo === "monthly" || currentApplyTo === "both") {
+                monthlyPriceAfterDiscount = Number(
+                    (plan.monthlyPrice - (plan.monthlyPrice * currentDiscountPercent) / 100).toFixed(2)
+                )
+            }
+
+            if (currentApplyTo === "yearly" || currentApplyTo === "both") {
+                yearlyPriceAfterDiscount = Number(
+                    (plan.yearlyPrice - (plan.yearlyPrice * currentDiscountPercent) / 100).toFixed(2)
+                )
+            }
+
+            plan.monthlyPriceAfterDiscount = monthlyPriceAfterDiscount
+            plan.yearlyPriceAfterDiscount = yearlyPriceAfterDiscount
+        }
+
+        await plan.save()
+
+        return res.status(200).json({
+            message: "Plan offer updated successfully",
+            plan
+        })
+    }
+
     //CRUD FOR COUPON
     createCoupon = async (req: Request, res: Response, next: NextFunction) => {
         const { code, type, value, maxUses, plans, validFrom, validUntil } = req.body
@@ -316,9 +380,9 @@ class SuperAdminService {
         if (type === "fixed" && value <= 0) {
             throw new AppError("fixed value must be greater than 0", 400)
         }
-        if (!validFrom || !validUntil) throw new AppError("validFrom and validUntil are required", 400)
+        if (!validUntil) throw new AppError("validUntil is required", 400)
 
-        const fromDate = new Date(validFrom)
+        const fromDate = validFrom ? new Date(validFrom) : new Date()
         const untilDate = new Date(validUntil)
 
         if (isNaN(fromDate.getTime()) || isNaN(untilDate.getTime())) {
