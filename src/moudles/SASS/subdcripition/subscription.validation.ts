@@ -21,7 +21,8 @@ export const registerOfficeSchema = {
 
     phone: z
       .string()
-      .min(1, "رقم الهاتف مطلوب"),
+      .min(1, "رقم الهاتف مطلوب")
+      .regex(ARAB_PHONE_REGEX, ARAB_PHONE_ERROR_MSG),
 
 
     UserName: z
