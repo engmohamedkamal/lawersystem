@@ -56,6 +56,7 @@ taskRouter.post(
     "/:taskId/comments",
     authentication(TokenType.access),
     tenantMiddleware,
+    MulterHost({ customExtension: [...allowedExtensions.image, ...allowedExtensions.uploadAnyFiles] }).single("file"),
     validation(TV.addTaskCommentSchema),
     TS.addTaskComment
 )

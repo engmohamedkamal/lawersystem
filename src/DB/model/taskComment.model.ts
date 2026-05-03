@@ -5,7 +5,7 @@ export interface ITaskComment extends Document {
     userId: Types.ObjectId;
     content: string;
     parentCommentId?: Types.ObjectId;
-    attachments: { url: string; publicId: string; name: string }[];
+    attachments: { url: string; publicId: string; name: string; sizeBytes: number }[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -21,6 +21,7 @@ const TaskCommentSchema = new Schema<ITaskComment>(
                 url: { type: String, required: true },
                 publicId: { type: String, required: true },
                 name: { type: String, required: true },
+                sizeBytes: { type: Number, default: 0 },
             },
         ],
     },

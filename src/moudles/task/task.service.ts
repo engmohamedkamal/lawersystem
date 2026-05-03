@@ -403,8 +403,46 @@ class taskService {
 
         
 
-        const attachments: any[] = [];
+        const attachments: { url: string; publicId: string; name: string; sizeBytes: number }[] = [];
         
+        if (req.file) {
+            await checkStorageAvailable(officeId as any, req.file.size || req.file.buffer.length);
+
+            const ext = req.file.originalname.split(".").pop()?.toLowerCase() || ""
+            const imageExts = ["jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "svg"]
+            const safeName = Buffer.from(req.file.originalname, "latin1").toString("utf8")
+
+            const resourceType: "image" | "raw" = imageExts.includes(ext) ? "image" : "raw"
+
+            const baseName = safeName.replace(/\.[^/.]+$/, "")
+            const sanitizedBaseName = baseName.replace(/[^\w\-]+/g, "-")
+            const finalPublicId = `${sanitizedBaseName}.${ext}`
+
+            const { secure_url, public_id, bytes } = await uploadBuffer(
+                req.file.buffer,
+                `tasks/${taskId}/comments/attachments`,
+                resourceType,
+                finalPublicId
+            )
+
+            let storageReserved = false;
+            try {
+                await reserveStorage(officeId as any, bytes);
+                storageReserved = true;
+
+                attachments.push({
+                    url: secure_url,
+                    publicId: public_id,
+                    name: safeName,
+                    sizeBytes: bytes,
+                });
+            } catch (err) {
+                await cloudinary.uploader.destroy(public_id).catch(() => {});
+                if (storageReserved) await releaseStorage(officeId as any, bytes).catch(() => {});
+                throw err;
+            }
+        }
+
         const comment = await TaskCommentModel.create({
             taskId,
             userId: req.user?.id,

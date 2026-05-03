@@ -16,13 +16,15 @@ export const checkStorageAvailable = async (
   const office = await OfficeModel.findById(officeId);
   if (!office) throw new AppError("المكتب غير موجود", 404);
 
-  const maxStorage = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
-  if (typeof maxStorage !== "number" || maxStorage < 0) {
+  const maxStorageGB = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
+  if (typeof maxStorageGB !== "number" || maxStorageGB < 0) {
     throw new AppError("Feature 'STORAGE_MAX' is not configured properly", 500);
   }
 
+  const maxStorageBytes = maxStorageGB * 1024 * 1024 * 1024;
   const currentUsage = office.storageUsedBytes || 0;
-  if (currentUsage + estimatedBytes > maxStorage) {
+  
+  if (currentUsage + estimatedBytes > maxStorageBytes) {
     throw new AppError("مساحة التخزين المتوفرة في خطتك الحالية غير كافية", 403);
   }
 };
@@ -40,11 +42,13 @@ export const reserveStorage = async (
     throw new AppError("المكتب غير موجود", 404);
   }
 
-  const maxStorage = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
+  const maxStorageGB = getFeatureValue(office, PLAN_FEATURES.STORAGE_MAX);
 
-  if (typeof maxStorage !== "number" || maxStorage < 0) {
+  if (typeof maxStorageGB !== "number" || maxStorageGB < 0) {
     throw new AppError("Feature 'STORAGE_MAX' is not configured properly", 500);
   }
+
+  const maxStorageBytes = maxStorageGB * 1024 * 1024 * 1024;
 
   const updatedOffice = await OfficeModel.findOneAndUpdate(
     {
@@ -52,7 +56,7 @@ export const reserveStorage = async (
       $expr: {
         $lte: [
           { $add: [{ $ifNull: ["$storageUsedBytes", 0] }, fileBytes] },
-          maxStorage
+          maxStorageBytes
         ]
       }
     },

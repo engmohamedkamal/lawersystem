@@ -3,6 +3,7 @@ import UserModel from "../DB/model/user.model";
 import LegalCaseModel from "../DB/model/LegalCase.model";
 import SessionModel from "../DB/model/session.model";
 import TaskModel from "../DB/model/tasks.model";
+import TaskCommentModel from "../DB/model/taskComment.model";
 import ClientModel from "../DB/model/client.model";
 import SettingsModel from "../DB/model/settings.model";
 import LawModel from "../DB/model/law.model";
@@ -39,10 +40,21 @@ const collectOfficePublicIds = async (officeId: any): Promise<FileRef[]> => {
         }
     }
 
-    const tasks = await TaskModel.find({ officeId }).select("attachments").lean();
+    const tasks = await TaskModel.find({ officeId }).select("_id attachments").lean();
+    const taskIds = [];
     for (const t of tasks) {
+        taskIds.push(t._id);
         for (const att of ((t as any).attachments || [])) {
             if (att.publicId) items.push({ publicId: att.publicId, mongoBytes: att.sizeBytes || 0, source: "task-attachment" });
+        }
+    }
+
+    if (taskIds.length > 0) {
+        const taskComments = await TaskCommentModel.find({ taskId: { $in: taskIds } }).select("attachments").lean();
+        for (const tc of taskComments) {
+            for (const att of ((tc as any).attachments || [])) {
+                if (att.publicId) items.push({ publicId: att.publicId, mongoBytes: att.sizeBytes || 0, source: "task-comment-attachment" });
+            }
         }
     }
 
