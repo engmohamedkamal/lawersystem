@@ -293,7 +293,7 @@ class taskService {
             details: data
         });
 
-        return res.status(200).json({ message: "Task updated successfully", task: updated })
+        return res.status(200).json({ message: "تم تحديث المهمة بنجاح", task: updated })
     }
 
     updateTaskStatus = async (req: Request, res: Response, next: NextFunction) => {
@@ -334,7 +334,7 @@ class taskService {
             details: { from: task.status, to: status }
         });
 
-        return res.status(200).json({ message: "Status updated successfully", task: updated })
+        return res.status(200).json({ message: "تم تحديث الحالة بنجاح", task: updated })
     }
 
     deleteTask = async (req: Request, res: Response, next: NextFunction) => {
@@ -380,7 +380,6 @@ class taskService {
 
         return res.status(200).json({ message: "Notifications marked as read" })
     }
-
 
     addTaskComment = async (req: Request, res: Response, next: NextFunction) => {
         const { taskId } = req.params;

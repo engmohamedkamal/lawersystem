@@ -6,6 +6,8 @@ import { sessionReminderJob } from "./Session.cron";
 import { syncOfficeStorage } from "./syncStorage.cron";
 import { updateExpiredSubscriptions } from "./Subscription.cron";
 import PlanModel from "../DB/model/SaaSModels/Plan.model";
+import { updateOverdueTasks } from "./taskOverdue.job";
+
 
 let appointmentsJobRunning = false;
 let reminderJobRunning = false;
@@ -13,6 +15,8 @@ let invoiceJobRunning = false;
 let storageSyncJobRunning = false;
 let subscriptionJobRunning = false;
 let planOffersJobRunning = false;
+let taskOverdueJobRunning = false;
+
 
 
 
@@ -219,6 +223,34 @@ export const startCronJobs = () => {
       }
     } finally {
       planOffersJobRunning = false;
+    }
+  });
+
+  cron.schedule("*/30 * * * *", async () => {
+    if (taskOverdueJobRunning) {
+      console.warn("[CRON] updateOverdueTasks skipped: previous run still active");
+      return;
+    }
+
+    if (!isDbConnected()) {
+      console.warn("[CRON] DB not connected, skipping updateOverdueTasks");
+      return;
+    }
+
+    taskOverdueJobRunning = true;
+
+    try {
+      console.log("[CRON] updateOverdueTasks started");
+      await updateOverdueTasks();
+      console.log("[CRON] updateOverdueTasks finished");
+    } catch (error: any) {
+      if (isMongoConnectionError(error)) {
+        console.warn("[CRON] DB unavailable during updateOverdueTasks, skipping");
+      } else {
+        console.error("[TASK OVERDUE CRON ERROR]", error);
+      }
+    } finally {
+      taskOverdueJobRunning = false;
     }
   });
 

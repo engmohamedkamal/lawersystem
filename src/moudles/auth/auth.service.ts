@@ -35,16 +35,16 @@ class authService {
         const user = await UserModel.findOne({email})
 
         if(!user){
-            throw new AppError("email not found" , 409)
+            throw new AppError("البريد الإلكتروني غير موجود" , 409)
         }
 
         const isMatch = await compare(password, user.password);
         if (!isMatch) {
-            throw new AppError("invalid password", 401);
+            throw new AppError("كلمة المرور غير صحيحة", 401);
         }
 
         if (user.isDeleted) {
-            throw new AppError("account is frozen", 403);
+            throw new AppError("الحساب مجمد", 403);
         }
 
         const jwtid = uuidv4();
@@ -67,7 +67,7 @@ class authService {
            maxAge: 1000 * 60 * 60 * 24 * 365, 
         });
 
-    return res.status(200).json({ message: "success", access_token })
+    return res.status(200).json({ message: "تم تسجيل الدخول بنجاح", access_token })
 
     }
 
@@ -96,7 +96,7 @@ class authService {
             }
         }
 
-        if (user.isDeleted) throw new AppError("account is frozen", 403);
+        if (user.isDeleted) throw new AppError("الحساب مجمد", 403);
 
         const accessJti = uuidv4();
         const access_token = await generateToken({
@@ -145,7 +145,7 @@ class authService {
            secure: true,
         });
         
-        return res.status(200).json({ message: "done" , revokeToken})
+        return res.status(200).json({ message: "تم تسجيل الخروج بنجاح" , revokeToken})
     };
 
 }   
